@@ -1,26 +1,26 @@
-# OPENPOS
+# OPENPOS WEB
 
-Sistema de punto de venta para terminal (TUI) construido con Bun, Ink, Zustand y Drizzle ORM.
+Sistema de punto de venta web construido con React, Vite, Hono, Zustand, Tailwind CSS y Drizzle ORM.
 
 ## Screenshots
 
-### Pantalla de Login
+### Pantalla de Login (Web)
 ![Login](images/screen1.png)
 
-### Pantalla Principal
+### Pantalla POS (Web)
 ![POS](images/screen2.png)
 
-### Pantalla de Ticket
+### Reportes (Web)
 ![Reports](images/screen3.png)
 
-### Pantalla de Correo (factura)
-![Settings](images/screen4.png)
+### Configuración de Tienda (Web)
+![Settings - Tienda](images/screen4.png)
 
-### Pantalla (factura)
-![Printer](images/screen5.png)
+### Configuración de Impresora (Web)
+![Settings - Impresora](images/screen5.png)
 
-### Pantalla de Configuración
-![Products](images/screen6.png)
+### Configuración de Productos (Web)
+![Settings - Productos](images/screen6.png)
 
 ## Características
 
@@ -32,7 +32,8 @@ Sistema de punto de venta para terminal (TUI) construido con Bun, Ink, Zustand y
 - **Impresión térmica** - Tickets con banner desde imagen
 - **Reportes de ventas** - Reportes diarios y por período
 - **Autenticación** - Login con PIN y roles (admin/cashier)
-- **Configuración TUI** - Menú interactivo para todas las configuraciones
+- **Configuración Web** - Panel completo de configuración
+- **Importación CSV** - Importación de productos y ventas desde CSV
 
 ## Requisitos
 
@@ -99,10 +100,26 @@ pos.exe add user juan 1234 --role admin
 
 ## Uso
 
-### Modo interactivo (Interfaz visual)
+### Modo web (desarrollo)
 
 ```bash
-bun run dev
+npm run dev:web
+```
+
+Esto inicia el servidor web en **http://localhost:3000** con hot-reload (Vite en puerto 5173).
+
+### Modo web (producción)
+
+```bash
+npm run build:web
+npm run start:web
+```
+
+### Crear usuario
+
+```bash
+npm run seed        # Productos de ejemplo
+npx tsx src/cli.ts add user admin 1234 --role admin
 ```
 
 ### Configuración (TUI)
