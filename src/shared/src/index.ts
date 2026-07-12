@@ -20,6 +20,7 @@ export * from "./store/auth.js";
 export * from "./store/windowManager.js";
 
 export * from "./utils/printer/index.js";
+export * from "./auth/pin.js";
 
 export { runSeed } from "./db/seed.js";
 export { runImport } from "./db/import-csv.js";

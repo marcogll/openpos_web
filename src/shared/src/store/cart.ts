@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Product } from "../db/schema.js";
 import { getConfig, setConfig, CONFIG_KEYS } from "../db/client.js";
 
-export type UnitType = "pza" | "kg" | "g" | "lt" | "ml" | "m" | "cm";
+export type UnitType = "pza" | "kg" | "g" | "lt" | "ml" | "m" | "cm" | "servicio";
 
 export const UNIT_LABELS: Record<UnitType, string> = {
   pza: "pza",
@@ -12,6 +12,7 @@ export const UNIT_LABELS: Record<UnitType, string> = {
   ml: "ml",
   m: "m",
   cm: "cm",
+  servicio: "servicio",
 };
 
 export const UNIT_IS_FRACTIONAL: Record<UnitType, boolean> = {
@@ -22,6 +23,7 @@ export const UNIT_IS_FRACTIONAL: Record<UnitType, boolean> = {
   ml: true,
   m: true,
   cm: true,
+  servicio: false,
 };
 
 const UNIT_STEP: Record<UnitType, number> = {
@@ -32,6 +34,7 @@ const UNIT_STEP: Record<UnitType, number> = {
   ml: 10,
   m: 0.1,
   cm: 1,
+  servicio: 1,
 };
 
 export type CartItem = Product & { qty: number };

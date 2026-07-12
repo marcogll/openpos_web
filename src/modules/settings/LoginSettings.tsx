@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, useInput } from "ink";
 import { Box, Row, Col, BgBox, theme, Input, Divider } from "@openpos/shared";
-import { db, users } from "@openpos/shared";
+import { db, users, verifyPin } from "@openpos/shared";
 import { sql } from "drizzle-orm";
 import { useLayout, TooSmallOverlay } from "../../shared/useLayout";
 import { cachedBannerLines, cachedBannerCols, reloadBanner } from "../pos/LoadingScreen.js";
@@ -63,7 +63,7 @@ export function LoginSettings({ onLogin, onCancel }: LoginSettingsProps) {
 
       const dbUsers = db.select().from(users).where(sql`active = 1`).all();
       const validUser = dbUsers.find(
-        (u: any) => u.username.toLowerCase() === username.toLowerCase() && u.pin === pin && u.active === 1
+        (u: any) => u.username.toLowerCase() === username.toLowerCase() && verifyPin(u.pin, pin) && u.active === 1
       );
 
       if (!validUser) {

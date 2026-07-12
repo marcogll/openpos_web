@@ -3,7 +3,7 @@ import { db, initDb } from "./client.js";
 import { products } from "./schema.js";
 import { sql } from "drizzle-orm";
 
-const VALID_UNIT_TYPES = ["pza", "kg", "g", "lt", "ml", "m", "cm"];
+const VALID_UNIT_TYPES = ["pza", "kg", "g", "lt", "ml", "m", "cm", "servicio"];
 
 function parseCSV(content: string): Record<string, string>[] {
   const lines = content.trim().split("\n");
@@ -31,7 +31,7 @@ function validateRow(row: Record<string, string>, lineNum: number): string | nul
   if (!row.name) return `Línea ${lineNum}: Falta nombre`;
   if (!row.price || isNaN(parseFloat(row.price))) return `Línea ${lineNum}: Precio inválido`;
   if (row.unittype && !VALID_UNIT_TYPES.includes(row.unittype)) {
-    return `Línea ${lineNum}: unitType inválido (use: pza, kg, g, lt, ml, m, cm)`;
+    return `Línea ${lineNum}: unitType inválido (use: pza, kg, g, lt, ml, m, cm, servicio)`;
   }
   return null;
 }

@@ -1,14 +1,17 @@
 # Dependencies
 node_modules/
+src/shared/node_modules/
 
 # Build output
 dist/
+dist-*/
 pos.exe
 
 # Environment
 .env
 .env.local
 .env.*.local
+config.local.json
 
 # Database
 *.db

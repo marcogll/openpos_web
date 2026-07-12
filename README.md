@@ -123,19 +123,6 @@ Abre un menú interactivo para configurar:
 
 ### Línea de comandos (CLI)
 
-<<<<<<< HEAD
-```bash
-pos --help              # Mostrar ayuda
-pos --version           # Mostrar versión
-pos --settings          # Abrir configuración TUI
-pos import products     # Importar productos desde CSV
-pos export products     # Exportar productos a CSV
-pos seed                # Insertar productos de ejemplo
-pos add user <username> <pin> [--role]  # Agregar usuario
-pos config get          # Ver configuración
-pos config config set <key> <value>  # Actualizar configuración
-```
-=======
 Puedes ejecutar los comandos directamente o a través de Docker:
 
 | Comando | Ejecución Local | Ejecución Docker |
@@ -148,7 +135,6 @@ Puedes ejecutar los comandos directamente o a través de Docker:
 | Usuario | `pos.exe add user <user> <pin>` | `docker-compose run --rm app add user <user> <pin>` |
 | Config Get | `pos.exe config get` | `docker-compose run --rm app config get` |
 | Config Set | `pos.exe config set <k> <v>` | `docker-compose run --rm app config set <k> <v>` |
->>>>>>> 2ae9ae81a7c2b3405f737f12daecead51c952e57
 
 ### Importar Productos
 
@@ -171,7 +157,7 @@ sku,name,price,cost,category,stock,barcode,unittype,unitqty,minstock
 | category | ❌ | Categoría (default: GEN) |
 | stock | ❌ | Stock inicial (default: 0) |
 | minStock | ❌ | Stock mínimo (default: 5) |
-| unitType | ❌ | pza, kg, g, lt, ml, m, cm (default: pza) |
+| unitType | ❌ | pza, kg, g, lt, ml, m, cm, servicio (default: pza) |
 | unitQty | ❌ | Cantidad por unidad |
 | barcode | ❌ | Código de barras |
 

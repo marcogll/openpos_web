@@ -45,7 +45,7 @@ const VERSION = "1.0.0";
 
 const HELP_TEXT = `
 ╔════════════════════════════════════════════════════════════════╗
-║ OPENPOS v1.0.0                                                 ║
+║ Vanity POS v1.0.0                                                  ║
 ║ Sistema de Punto de Venta                                      ║
 ╚════════════════════════════════════════════════════════════════╝
 
@@ -53,32 +53,33 @@ USO:
   pos.exe [COMANDO] [OPCIONES]
 
 COMANDOS:
-  (sin comando)    Iniciar modo interactivo
+  (sin comando)    Iniciar modo interactivo (TUI)
+  --web            Iniciar servidor web (puerto 3000)
+  --web:dev        Iniciar con Vite dev server (puerto 5173 + API 3000)
   --settings       Abrir configuración (TUI)
   import products  Importar productos desde archivo CSV
-  export products Exportar productos a archivo CSV
-  seed            Insertar productos de ejemplo
-  add user        Agregar nuevo usuario
-  config get      Ver configuracion actual
-  config set      Actualizar configuracion
+  export products  Exportar productos a archivo CSV
+  seed             Insertar productos de ejemplo
+  add user         Agregar nuevo usuario
+  config get       Ver configuracion actual
+  config set       Actualizar configuracion
 
   OPCIONES:
-  -h, --help      Mostrar esta ayuda
-  -v, --version   Mostrar version
-  --dry-run       Simular sin guardar cambios
-  --replace       Vaciar productos antes de importar
+  -h, --help       Mostrar esta ayuda
+  -v, --version    Mostrar version
+  --dry-run        Simular sin guardar cambios
+  --replace        Vaciar productos antes de importar
 
 EJEMPLOS:
-  pos.exe           Modo interactivo
-  pos.exe --settings Configuración TUI
-  import products   Importar productos
-  import products --replace  Importar reemplazando todo
-  export products   Exportar productos
-  seed              Productos de ejemplo
-  add user juan 1234                    Agregar usuario (role: cashier)
-  add user juan 1234 --role admin       Agregar usuario admin
-  config get        Ver configuracion
-  config set        Actualizar configuracion
+  pos.exe              Modo interactivo (TUI)
+  pos.exe --web        Modo web (http://localhost:3000)
+  pos.exe --web:dev    Modo web con hot-reload
+  pos.exe --settings   Configuración TUI
+  import products      Importar productos
+  seed                 Productos de ejemplo
+  add user juan 1234   Agregar usuario (role: cashier)
+  config get           Ver configuracion
+  config set           Actualizar configuracion
 `;
 
 const VALID_UNIT_TYPES = ["pza", "kg", "g", "lt", "ml", "m", "cm"];
@@ -466,6 +467,40 @@ export async function runCLI(): Promise<boolean> {
 
   const dryRun = args.includes("--dry-run");
   const replace = args.includes("--replace");
+
+  // ── Web mode ──────────────────────────────────────────────────────────────
+  if (args.includes("--web")) {
+    initDb();
+    console.log("\n🌐 Iniciando servidor web Vanity POS...");
+    console.log("   http://localhost:3000\n");
+    try {
+      const { createWebServer } = await import("./modules/web/server.js");
+      createWebServer();
+      return true;
+    } catch (err) {
+      logger.error("Web server failed", { error: String(err), stack: err instanceof Error ? err.stack : undefined });
+      console.error("\n❌ Error al iniciar servidor web.");
+      console.error("   Revisa openpos.log para detalles.");
+      process.exit(1);
+    }
+  }
+
+  if (args.includes("--web:dev")) {
+    initDb();
+    console.log("\n🌐 Iniciando servidor web (dev mode)...");
+    console.log("   API: http://localhost:3000");
+    console.log("   Vite: http://localhost:5173\n");
+    try {
+      const { createWebServer } = await import("./modules/web/server.js");
+      createWebServer();
+      return true;
+    } catch (err) {
+      logger.error("Web dev server failed", { error: String(err), stack: err instanceof Error ? err.stack : undefined });
+      console.error("\n❌ Error al iniciar servidor web dev.");
+      console.error("   Revisa openpos.log para detalles.");
+      process.exit(1);
+    }
+  }
 
   const cmd = args[0];
   const subcmd = args[1];

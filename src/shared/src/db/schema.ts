@@ -8,6 +8,7 @@ export const UNIT_TYPES = {
   ml: "ml",
   m: "m",
   cm: "cm",
+  servicio: "servicio",
 } as const;
 export type UnitType = typeof UNIT_TYPES[keyof typeof UNIT_TYPES];
 
@@ -36,7 +37,7 @@ export const config = sqliteTable("config", {
 
 export const sales = sqliteTable("sales", {
   id:         integer("id").primaryKey({ autoIncrement: true }),
-  ticket:     text("ticket").notNull(),
+  ticket:     text("ticket").notNull().unique(),
   subtotal:   real("subtotal").notNull(),
   tax:        real("tax").notNull(),
   discount:   real("discount").default(0),

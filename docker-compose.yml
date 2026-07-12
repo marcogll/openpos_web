@@ -15,5 +15,21 @@ services:
     environment:
       - DATABASE_URL=pos.db
 
+  web:
+    image: openpos-web:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: openpos-web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./pos.db:/app/pos.db
+      - ./config.json:/app/config.json
+      - ./assets:/app/assets
+    environment:
+      - DATABASE_URL=pos.db
+      - NODE_ENV=production
+
 volumes:
   node_modules_vol:

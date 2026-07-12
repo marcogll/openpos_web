@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
-import { db, users, type User, BgBox, theme } from "@openpos/shared";
+import { db, users, type User, BgBox, theme, hashPin } from "@openpos/shared";
 import { sql } from "drizzle-orm";
 import { useTerminalSize } from "./useTerminalSize";
 
@@ -47,12 +47,12 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 	}, [loadUsers]);
 
 	const handleSave = () => {
-		if (!form.username || !form.pin) {
+		if (!form.username || (view === "add" && !form.pin)) {
 			setMsg("❌ Username y PIN son obligatorios");
 			return;
 		}
 
-		if (form.pin.length < 4) {
+		if (form.pin && form.pin.length < 4) {
 			setMsg("❌ PIN debe tener al menos 4 dígitos");
 			return;
 		}
@@ -67,7 +67,7 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 			db.insert(users).values({
 				username: form.username,
 				name: form.name || form.username,
-				pin: form.pin,
+				pin: hashPin(form.pin),
 				role: form.role || "cashier",
 				active: 1,
 				createdAt: new Date().toISOString(),
@@ -75,14 +75,24 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 			}).run();
 			setMsg("✅ Usuario agregado");
 		} else if (view === "edit" && editingId) {
-			db.run(sql`
-				UPDATE users SET
-					name = ${form.name || form.username},
-					pin = ${form.pin},
-					role = ${form.role},
-					updated_at = datetime('now')
-				WHERE id = ${editingId}
-			`);
+			if (form.pin) {
+				db.run(sql`
+					UPDATE users SET
+						name = ${form.name || form.username},
+						pin = ${hashPin(form.pin)},
+						role = ${form.role},
+						updated_at = datetime('now')
+					WHERE id = ${editingId}
+				`);
+			} else {
+				db.run(sql`
+					UPDATE users SET
+						name = ${form.name || form.username},
+						role = ${form.role},
+						updated_at = datetime('now')
+					WHERE id = ${editingId}
+				`);
+			}
 			setMsg("✅ Usuario actualizado");
 		}
 
@@ -109,7 +119,7 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 		setForm({
 			username: user.username,
 			name: user.name,
-			pin: user.pin,
+			pin: "",
 			role: user.role,
 		});
 		setEditingId(user.id);
