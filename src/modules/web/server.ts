@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { serve } from "@hono/node-server";
 import { logger } from "hono/logger";
 import { authRoutes } from "./routes/auth";
 import { productRoutes } from "./routes/products";
@@ -19,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = new Hono();
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:5173")
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:3001,http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
@@ -102,7 +101,7 @@ api.get("/", (c) => {
     </header>
 
     <div class="base-url">
-      <span>Base URL: </span><code>http://localhost:3000/api</code>
+      <span>Base URL: </span><code>http://localhost:3001/api</code>
     </div>
 
     <div class="section">
@@ -336,18 +335,23 @@ app.get("/*", (c) => {
   }
 });
 
-const port = Number(process.env.PORT) || 3000;
+const port = Number(process.env.PORT) || 3001;
 
 export function createWebServer() {
-  serve({ fetch: app.fetch, port }, () => {
-    console.log(`\n  ✨ Vanity POS — Web Mode`);
-    console.log(`  ➜ Local: http://localhost:${port}`);
-    console.log(`  ➜ API:   http://localhost:${port}/api`);
-    console.log(`  ➜ Dist:  ${DIST_DIR}\n`);
+  Bun.serve({
+    fetch: app.fetch,
+    port,
   });
+  console.log(`\n  ✨ Vanity POS — Web Mode`);
+  console.log(`  ➜ Local: http://localhost:${port}`);
+  console.log(`  ➜ API:   http://localhost:${port}/api`);
+  console.log(`  ➜ Dist:  ${DIST_DIR}\n`);
 }
 
 export default app;
 
-// Auto-start when run directly
-createWebServer();
+// Auto-start when run directly (not when imported)
+const isMainModule = import.meta.main;
+if (isMainModule) {
+  createWebServer();
+}

@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from "./stores/authStore";
 import { Layout } from "./components/layout/Layout";
 import { LoginScreen } from "./components/auth/LoginScreen";
+import { SetupScreen } from "./components/auth/SetupScreen";
 import { LoadingSpinner } from "./components/layout/LoadingSpinner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { AlertCircle, Home } from "lucide-react";
@@ -22,6 +23,19 @@ const ReportsView = lazy(() =>
 const SettingsView = lazy(() =>
   import("./components/settings/SettingsView").then((m) => ({ default: m.SettingsView }))
 );
+
+function useNeedsSetup() {
+  const [needsSetup, setNeedsSetup] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    fetch("/api/auth/setup")
+      .then((r) => r.json())
+      .then((data) => setNeedsSetup(data.needsSetup))
+      .catch(() => setNeedsSetup(false));
+  }, []);
+
+  return needsSetup;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -55,30 +69,49 @@ function NotFound() {
 }
 
 export function App() {
+  const needsSetup = useNeedsSetup();
+
+  if (needsSetup === null) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginScreen />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <ErrorBoundary>
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <Routes>
-                      <Route path="/" element={<Navigate to="/pos" replace />} />
-                      <Route path="/pos" element={<PosView />} />
-                      <Route path="/reports" element={<ReportsView />} />
-                      <Route path="/settings" element={<SettingsView />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </ErrorBoundary>
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+        {needsSetup ? (
+          <>
+            <Route path="/setup" element={<SetupScreen />} />
+            <Route path="*" element={<Navigate to="/setup" replace />} />
+          </>
+        ) : (
+          <>
+            <Route path="/login" element={<LoginScreen />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ErrorBoundary>
+                      <Suspense fallback={<LoadingSpinner />}>
+                        <Routes>
+                          <Route path="/" element={<Navigate to="/pos" replace />} />
+                          <Route path="/pos" element={<PosView />} />
+                          <Route path="/reports" element={<ReportsView />} />
+                          <Route path="/settings" element={<SettingsView />} />
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </Suspense>
+                    </ErrorBoundary>
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   );

@@ -1,33 +1,16 @@
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { sql } from "drizzle-orm";
-import * as schema from "./schema.js";
-import { logger } from "../logger.js";
+import postgres from "postgres";
 
-let sqlite: Database;
-let _db: ReturnType<typeof drizzle>;
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://openpos:openpos123@localhost:5432/openpos";
 
-function getDb() {
-  if (!sqlite) {
-    sqlite = new Database("pos.db");
-    sqlite.exec("PRAGMA journal_mode = WAL;");
-    _db = drizzle(sqlite, { schema });
+let sql: ReturnType<typeof postgres>;
+let _initialized = false;
+
+function getSql() {
+  if (!sql) {
+    sql = postgres(DATABASE_URL, { max: 10 });
   }
-  return sqlite;
+  return sql;
 }
-
-export const db = new Proxy({} as any, {
-  get(_target, prop) {
-    const dbInstance = getDb();
-    if (prop === "run" || prop === "exec" || prop === "prepare") {
-      return dbInstance[prop].bind(dbInstance);
-    }
-    if (prop === "select" || prop === "insert" || prop === "update" || prop === "delete") {
-      return _db ? _db[prop] : (getDb()[prop as keyof typeof dbInstance]);
-    }
-    return _db ? _db[prop as keyof typeof _db] : dbInstance[prop as keyof typeof dbInstance];
-  }
-});
 
 export const CONFIG_KEYS = {
   LAST_TICKET: "lastTicketNum",
@@ -55,84 +38,85 @@ export const CONFIG_KEYS = {
 
 export type ConfigKey = typeof CONFIG_KEYS[keyof typeof CONFIG_KEYS];
 
-export function getConfig(key: string): string | null {
+export async function getConfig(key: string): Promise<string | null> {
   try {
-    const row = (db as any).select().from(schema.config).where(sql`key = ${key}`).get();
-    return row?.value ?? null;
+    const rows = await getSql()`SELECT value FROM config WHERE key = ${key}`;
+    return rows[0]?.value ?? null;
   } catch {
     return null;
   }
 }
 
-export function setConfig(key: string, value: string): boolean {
+export async function setConfig(key: string, value: string): Promise<boolean> {
   try {
-    (db as any)
-      .insert(schema.config)
-      .values({ key, value, updatedAt: new Date().toISOString() })
-      .onConflictDoUpdate({
-        target: schema.config.key,
-        set: { value, updatedAt: new Date().toISOString() },
-      })
-      .run();
-    logger.info("Config saved", { key, value });
+    await getSql()`INSERT INTO config (key, value, updated_at) VALUES (${key}, ${value}, NOW()::text)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`;
     return true;
-  } catch (err) {
-    logger.error("Failed to save config", { key, value, error: String(err) });
+  } catch {
     return false;
   }
 }
 
-export function getStoreConfig() {
+export async function getStoreConfig() {
   return {
-    name: getConfig(CONFIG_KEYS.STORE_NAME) || "MI TIENDA",
-    rfc: getConfig(CONFIG_KEYS.STORE_RFC) || "XAXX010101000",
-    address: getConfig(CONFIG_KEYS.STORE_ADDRESS) || "Sin dirección",
-    legalName: getConfig(CONFIG_KEYS.STORE_LEGAL_NAME) || "Mi Tienda SA de CV",
-    email: getConfig(CONFIG_KEYS.STORE_EMAIL) || "",
-    phone: getConfig(CONFIG_KEYS.STORE_PHONE) || "",
-    regimen: getConfig(CONFIG_KEYS.STORE_REGIMEN) || "601",
-    taxRate: parseFloat(getConfig(CONFIG_KEYS.TAX_RATE) || "16"),
-    printerEnabled: getConfig(CONFIG_KEYS.PRINTER_ENABLED) === "true",
+    name: await getConfig(CONFIG_KEYS.STORE_NAME) || "MI TIENDA",
+    rfc: await getConfig(CONFIG_KEYS.STORE_RFC) || "XAXX010101000",
+    address: await getConfig(CONFIG_KEYS.STORE_ADDRESS) || "Sin dirección",
+    legalName: await getConfig(CONFIG_KEYS.STORE_LEGAL_NAME) || "Mi Tienda SA de CV",
+    email: await getConfig(CONFIG_KEYS.STORE_EMAIL) || "",
+    phone: await getConfig(CONFIG_KEYS.STORE_PHONE) || "",
+    regimen: await getConfig(CONFIG_KEYS.STORE_REGIMEN) || "601",
+    taxRate: parseFloat(await getConfig(CONFIG_KEYS.TAX_RATE) || "16"),
+    printerEnabled: await getConfig(CONFIG_KEYS.PRINTER_ENABLED) === "true",
   };
 }
 
-export function initDb() {
-  const dbInstance = getDb();
-  dbInstance.exec(`
+// Legacy db proxy (used by TUI imports, not functional in PG mode)
+export const db = new Proxy({} as any, {
+  get(_target, prop) {
+    throw new Error(`db.${String(prop)} called — use PostgreSQL webDb for web mode`);
+  },
+});
+
+export async function initDb() {
+  if (_initialized) return;
+  _initialized = true;
+  const s = getSql();
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
-  dbInstance.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS products (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         SERIAL PRIMARY KEY,
       barcode    TEXT UNIQUE,
       sku        TEXT NOT NULL UNIQUE,
       name       TEXT NOT NULL,
-      price      REAL NOT NULL,
-      cost       REAL DEFAULT 0,
+      price      DOUBLE PRECISION NOT NULL,
+      cost       DOUBLE PRECISION DEFAULT 0,
       category   TEXT NOT NULL DEFAULT 'GEN',
-      stock      REAL NOT NULL DEFAULT 0,
-      min_stock  REAL DEFAULT 5,
+      stock      DOUBLE PRECISION NOT NULL DEFAULT 0,
+      min_stock  DOUBLE PRECISION DEFAULT 5,
       unit_type  TEXT NOT NULL DEFAULT 'pza',
-      unit_qty   REAL DEFAULT 1,
+      unit_qty   DOUBLE PRECISION DEFAULT 1,
       active     INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (NOW()::text),
+      updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
-  dbInstance.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS sales (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         SERIAL PRIMARY KEY,
       ticket     TEXT NOT NULL,
-      subtotal   REAL NOT NULL,
-      tax        REAL NOT NULL,
-      discount   REAL DEFAULT 0,
-      total      REAL NOT NULL,
-      received   REAL DEFAULT 0,
-      change     REAL DEFAULT 0,
+      subtotal   DOUBLE PRECISION NOT NULL,
+      tax        DOUBLE PRECISION NOT NULL,
+      discount   DOUBLE PRECISION DEFAULT 0,
+      total      DOUBLE PRECISION NOT NULL,
+      received   DOUBLE PRECISION DEFAULT 0,
+      change     DOUBLE PRECISION DEFAULT 0,
       method     TEXT NOT NULL,
       status     TEXT DEFAULT 'completed',
       items      TEXT NOT NULL,
@@ -149,21 +133,26 @@ export function initDb() {
       cfdi_error TEXT
     )
   `);
-  dbInstance.exec(`
+  try {
+    await s.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_ticket_unique ON sales(ticket)`);
+  } catch {
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_sales_ticket ON sales(ticket)`);
+  }
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS users (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         SERIAL PRIMARY KEY,
       username   TEXT NOT NULL UNIQUE,
       name       TEXT NOT NULL,
       pin        TEXT NOT NULL,
       role       TEXT NOT NULL DEFAULT 'cashier',
       active     INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (NOW()::text),
+      updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
-  dbInstance.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS clients (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      id            SERIAL PRIMARY KEY,
       code          TEXT NOT NULL UNIQUE,
       rfc           TEXT NOT NULL UNIQUE,
       razon_social  TEXT NOT NULL,
@@ -171,64 +160,26 @@ export function initDb() {
       telefono      TEXT,
       direccion     TEXT,
       regimen_fiscal TEXT,
-      puntos        REAL DEFAULT 0,
-      created_at    TEXT DEFAULT (datetime('now')),
-      updated_at    TEXT DEFAULT (datetime('now'))
+      puntos        DOUBLE PRECISION DEFAULT 0,
+      created_at    TEXT DEFAULT (NOW()::text),
+      updated_at    TEXT DEFAULT (NOW()::text)
     )
   `);
-
-  initDefaultConfig();
 }
 
-function initDefaultConfig(): void {
-  const defaults: Record<string, string> = {
-    [CONFIG_KEYS.LAST_TICKET]: "1",
-    [CONFIG_KEYS.STORE_NAME]: "MI TIENDA",
-    [CONFIG_KEYS.STORE_RFC]: "XAXX010101000",
-    [CONFIG_KEYS.STORE_ADDRESS]: "Calle Principal 123",
-    [CONFIG_KEYS.STORE_LEGAL_NAME]: "Mi Tienda SA de CV",
-    [CONFIG_KEYS.STORE_EMAIL]: "",
-    [CONFIG_KEYS.STORE_PHONE]: "",
-    [CONFIG_KEYS.STORE_REGIMEN]: "601",
-    [CONFIG_KEYS.TAX_RATE]: "16",
-    [CONFIG_KEYS.PRINTER_ENABLED]: "true",
-    [CONFIG_KEYS.PRINTER_REQUIRED]: "true",
-    [CONFIG_KEYS.PRINTER_TYPE]: "Windows Printer",
-    [CONFIG_KEYS.PRINTER_INTERFACE]: "printer:POS-80",
-    [CONFIG_KEYS.PRINTER_WIDTH]: "48",
-    [CONFIG_KEYS.PRINTER_CHARACTER_SET]: "PC437",
-    [CONFIG_KEYS.RECEIPT_PROMPT_ON_SALE]: "true",
-    [CONFIG_KEYS.RECEIPT_DEFAULT_DELIVERY]: "printed",
-    [CONFIG_KEYS.BILLING_PROVIDER]: "facturapi",
-    [CONFIG_KEYS.BILLING_SANDBOX]: "true",
-  };
-
-  for (const [key, defaultValue] of Object.entries(defaults)) {
-    const existing = getConfig(key);
-    if (existing === null) {
-      setConfig(key, defaultValue);
-    }
-  }
-}
-
-function getNextClientCode(): string {
-  const row = (db as any).select().from(schema.clients).orderBy(sql`id DESC`).limit(1).get();
-  if (!row) return "CL-00001";
-  const lastNum = parseInt(row.code.replace("CL-", ""), 10);
-  return `CL-${String(lastNum + 1).padStart(5, "0")}`;
-}
-
-export function getClientByRfc(rfc: string): schema.Client | null {
+export async function getClientByRfc(rfc: string): Promise<any | null> {
   try {
-    return (db as any).select().from(schema.clients).where(sql`rfc = ${rfc}`).get() ?? null;
+    const rows = await getSql()`SELECT * FROM clients WHERE rfc = ${rfc}`;
+    return rows[0] ?? null;
   } catch {
     return null;
   }
 }
 
-export function getClientByCode(code: string): schema.Client | null {
+export async function getClientByCode(code: string): Promise<any | null> {
   try {
-    return (db as any).select().from(schema.clients).where(sql`code = ${code}`).get() ?? null;
+    const rows = await getSql()`SELECT * FROM clients WHERE code = ${code}`;
+    return rows[0] ?? null;
   } catch {
     return null;
   }
@@ -243,54 +194,44 @@ export interface CreateClientData {
   regimenFiscal?: string;
 }
 
-export function getOrCreateClient(data: CreateClientData): schema.Client {
-  const existing = getClientByRfc(data.rfc);
+export async function getOrCreateClient(data: CreateClientData) {
+  const existing = await getClientByRfc(data.rfc);
   if (existing) return existing;
 
-  const code = getNextClientCode();
-  const now = new Date().toISOString();
+  const s = getSql();
+  const codeRows = await s`SELECT code FROM clients ORDER BY id DESC LIMIT 1`;
+  let nextCode = "CL-00001";
+  if (codeRows.length > 0) {
+    const lastNum = parseInt(codeRows[0].code.replace("CL-", ""), 10);
+    nextCode = `CL-${String(lastNum + 1).padStart(5, "0")}`;
+  }
 
-  (db as any)
-    .insert(schema.clients)
-    .values({
-      code,
-      rfc: data.rfc,
-      razonSocial: data.razonSocial,
-      email: data.email ?? null,
-      telefono: data.telefono ?? null,
-      direccion: data.direccion ?? null,
-      regimenFiscal: data.regimenFiscal ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .run();
+  const now = new Date().toISOString();
+  await s`INSERT INTO clients (code, rfc, razon_social, email, telefono, direccion, regimen_fiscal, created_at, updated_at)
+    VALUES (${nextCode}, ${data.rfc}, ${data.razonSocial}, ${data.email ?? null}, ${data.telefono ?? null}, ${data.direccion ?? null}, ${data.regimenFiscal ?? null}, ${now}, ${now})`;
 
   return getClientByRfc(data.rfc)!;
 }
 
-export function listClients(search?: string): schema.Client[] {
+export async function listClients(search?: string) {
   try {
+    const s = getSql();
     if (search) {
-      return (db as any).select().from(schema.clients).where(sql`
-        rfc LIKE ${'%' + search + '%'} OR 
+      return await s`SELECT * FROM clients WHERE rfc LIKE ${'%' + search + '%'} OR 
         razon_social LIKE ${'%' + search + '%'} OR 
         email LIKE ${'%' + search + '%'} OR
         code LIKE ${'%' + search + '%'}
-      `).all();
+        ORDER BY razon_social ASC`;
     }
-    return (db as any).select().from(schema.clients).orderBy(sql`razon_social ASC`).all();
+    return await s`SELECT * FROM clients ORDER BY razon_social ASC`;
   } catch {
     return [];
   }
 }
 
-export function updateClientPoints(rfc: string, puntos: number): boolean {
+export async function updateClientPoints(rfc: string, puntos: number): Promise<boolean> {
   try {
-    (db as any)
-      .update(schema.clients)
-      .set({ puntos: puntos, updatedAt: new Date().toISOString() })
-      .where(sql`rfc = ${rfc}`)
-      .run();
+    await getSql()`UPDATE clients SET puntos = ${puntos}, updated_at = NOW()::text WHERE rfc = ${rfc}`;
     return true;
   } catch {
     return false;

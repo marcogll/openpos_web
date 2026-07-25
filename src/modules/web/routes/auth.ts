@@ -5,6 +5,51 @@ import { getRawDb } from "../webDb";
 
 export const authRoutes = new Hono();
 
+authRoutes.get("/setup", async (c) => {
+  const db = getRawDb();
+  const row = await db.get("SELECT COUNT(*)::int as count FROM users") as any;
+  return c.json({ needsSetup: row.count === 0 });
+});
+
+authRoutes.post("/setup", async (c) => {
+  const db = getRawDb();
+  const countRow = await db.get("SELECT COUNT(*)::int as count FROM users") as any;
+  if (countRow.count > 0) {
+    return c.json({ error: "Users already exist. Use login instead." }, 400);
+  }
+
+  try {
+    const { username, name, pin } = await c.req.json();
+
+    if (!username || !name || !pin) {
+      return c.json({ error: "username, name, and pin are required" }, 400);
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      return c.json({ error: "username can only contain letters, numbers, and underscores" }, 400);
+    }
+    if (pin.length < 4) {
+      return c.json({ error: "pin must be at least 4 characters" }, 400);
+    }
+
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO users (username, name, pin, role, active, created_at, updated_at)
+       VALUES ($1, $2, $3, 'admin', 1, $4, $5)`,
+      [username.trim(), name.trim(), hashPin(pin), now, now]
+    );
+
+    const user = await db.get("SELECT * FROM users WHERE username = $1", [username]) as any;
+    const token = createToken({ id: user.id, username: user.username, role: user.role });
+
+    return c.json({
+      token,
+      user: { id: user.id, username: user.username, name: user.name, role: user.role },
+    }, 201);
+  } catch (err) {
+    return c.json({ error: "Failed to create master user" }, 500);
+  }
+});
+
 authRoutes.post("/login", async (c) => {
   try {
     const { username, pin } = await c.req.json();
@@ -14,17 +59,18 @@ authRoutes.post("/login", async (c) => {
     }
 
     const db = getRawDb();
-    const user = db.prepare(
-      "SELECT * FROM users WHERE username = ? AND active = 1"
-    ).get(username) as any;
+    const user = await db.get(
+      "SELECT * FROM users WHERE username = $1 AND active = 1",
+      [username]
+    ) as any;
 
     if (!user || !verifyPin(user.pin, pin)) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
 
     if (!isHashedPin(user.pin)) {
-      db.prepare("UPDATE users SET pin = ?, updated_at = datetime('now') WHERE id = ?")
-        .run(hashPin(pin), user.id);
+      await db.run("UPDATE users SET pin = $1, updated_at = NOW()::text WHERE id = $2",
+        [hashPin(pin), user.id]);
     }
 
     const token = createToken({ id: user.id, username: user.username, role: user.role });
@@ -54,9 +100,10 @@ authRoutes.get("/me", async (c) => {
     if (!payload) return c.json({ error: "Invalid token" }, 401);
 
     const db = getRawDb();
-    const user = db.prepare(
-      "SELECT * FROM users WHERE id = ? AND active = 1"
-    ).get(payload.id) as any;
+    const user = await db.get(
+      "SELECT * FROM users WHERE id = $1 AND active = 1",
+      [payload.id]
+    ) as any;
 
     if (!user) {
       return c.json({ error: "User not found" }, 404);

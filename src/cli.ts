@@ -472,7 +472,7 @@ export async function runCLI(): Promise<boolean> {
   if (args.includes("--web")) {
     initDb();
     console.log("\n🌐 Iniciando servidor web Vanity POS...");
-    console.log("   http://localhost:3000\n");
+    console.log("   http://localhost:3001\n");
     try {
       const { createWebServer } = await import("./modules/web/server.js");
       createWebServer();

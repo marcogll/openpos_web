@@ -1,4 +1,17 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: openpos-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: openpos
+      POSTGRES_USER: openpos
+      POSTGRES_PASSWORD: openpos123
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   app:
     image: openpos-app:latest
     build: .
@@ -6,14 +19,12 @@ services:
     volumes:
       - .:/app
       - node_modules_vol:/app/node_modules
-    # By default, running 'docker-compose up' will start the 
-    # interactive UI (the entrypoint with no arguments).
-    # To run CLI commands, use: docker-compose run --rm app [args]
-    # Example: docker-compose run --rm app add user juan 1234
     stdin_open: true
     tty: true
+    depends_on:
+      - postgres
     environment:
-      - DATABASE_URL=pos.db
+      - DATABASE_URL=postgresql://openpos:openpos123@postgres:5432/openpos
 
   web:
     image: openpos-web:latest
@@ -22,14 +33,15 @@ services:
       dockerfile: Dockerfile.web
     container_name: openpos-web
     ports:
-      - "3000:3000"
+      - "3001:3001"
     volumes:
-      - ./pos.db:/app/pos.db
-      - ./config.json:/app/config.json
       - ./assets:/app/assets
+    depends_on:
+      - postgres
     environment:
-      - DATABASE_URL=pos.db
+      - DATABASE_URL=postgresql://openpos:openpos123@postgres:5432/openpos
       - NODE_ENV=production
 
 volumes:
+  pgdata:
   node_modules_vol:

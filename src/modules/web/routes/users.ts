@@ -58,11 +58,9 @@ function validateUser(body: ReturnType<typeof normalizeUser>, requirePin: boolea
 userRoutes.get("/", async (c) => {
   try {
     const db = getRawDb();
-    const rows = db
-      .prepare(
-        "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE active = 1 ORDER BY username ASC"
-      )
-      .all();
+    const rows = await db.all(
+      "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE active = 1 ORDER BY username ASC"
+    );
 
     return c.json(rows.map(toUserResponse));
   } catch (err) {
@@ -79,22 +77,24 @@ userRoutes.post("/", async (c) => {
     }
 
     const db = getRawDb();
-    const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(body.username);
+    const existing = await db.get("SELECT id FROM users WHERE username = $1", [body.username]);
     if (existing) {
       return c.json({ error: "User with this username already exists" }, 409);
     }
 
     const now = new Date().toISOString();
-    db.prepare(
+    await db.run(
       `INSERT INTO users (username, name, pin, role, active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, ?, ?)`
-    ).run(body.username, body.name, hashPin(body.pin), body.role, now, now);
+       VALUES ($1, $2, $3, $4, 1, $5, $6)`,
+      [body.username, body.name, hashPin(body.pin), body.role, now, now]
+    );
 
-    const created = db
-      .prepare("SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE username = ?")
-      .get(body.username);
+    const created = await db.all(
+      "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE username = $1",
+      [body.username]
+    );
 
-    return c.json(toUserResponse(created), 201);
+    return c.json(toUserResponse(created[0]), 201);
   } catch (err) {
     return c.json({ error: "Failed to create user" }, 500);
   }
@@ -114,35 +114,39 @@ userRoutes.put("/:id", async (c) => {
     }
 
     const db = getRawDb();
-    const existing = db.prepare("SELECT id FROM users WHERE id = ? AND active = 1").get(id);
+    const existing = await db.get("SELECT id FROM users WHERE id = $1 AND active = 1", [id]);
     if (!existing) {
       return c.json({ error: "User not found" }, 404);
     }
 
-    const duplicate = db
-      .prepare("SELECT id FROM users WHERE username = ? AND id <> ?")
-      .get(body.username, id);
+    const duplicate = await db.get(
+      "SELECT id FROM users WHERE username = $1 AND id <> $2",
+      [body.username, id]
+    );
     if (duplicate) {
       return c.json({ error: "User with this username already exists" }, 409);
     }
 
     if (body.pin) {
-      db.prepare(
+      await db.run(
         `UPDATE users
-         SET username = ?, name = ?, pin = ?, role = ?, updated_at = datetime('now')
-         WHERE id = ?`
-      ).run(body.username, body.name, hashPin(body.pin), body.role, id);
+         SET username = $1, name = $2, pin = $3, role = $4, updated_at = NOW()::text
+         WHERE id = $5`,
+        [body.username, body.name, hashPin(body.pin), body.role, id]
+      );
     } else {
-      db.prepare(
+      await db.run(
         `UPDATE users
-         SET username = ?, name = ?, role = ?, updated_at = datetime('now')
-         WHERE id = ?`
-      ).run(body.username, body.name, body.role, id);
+         SET username = $1, name = $2, role = $3, updated_at = NOW()::text
+         WHERE id = $4`,
+        [body.username, body.name, body.role, id]
+      );
     }
 
-    const updated = db
-      .prepare("SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE id = ?")
-      .get(id);
+    const updated = await db.get(
+      "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE id = $1",
+      [id]
+    );
 
     return c.json(toUserResponse(updated));
   } catch (err) {
@@ -158,12 +162,12 @@ userRoutes.delete("/:id", async (c) => {
     }
 
     const db = getRawDb();
-    const existing = db.prepare("SELECT id FROM users WHERE id = ? AND active = 1").get(id);
+    const existing = await db.get("SELECT id FROM users WHERE id = $1 AND active = 1", [id]);
     if (!existing) {
       return c.json({ error: "User not found" }, 404);
     }
 
-    db.prepare("UPDATE users SET active = 0, updated_at = datetime('now') WHERE id = ?").run(id);
+    await db.run("UPDATE users SET active = 0, updated_at = NOW()::text WHERE id = $1", [id]);
     return c.json({ message: "User deactivated" });
   } catch (err) {
     return c.json({ error: "Failed to delete user" }, 500);

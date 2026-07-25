@@ -1,59 +1,60 @@
-import Database from "better-sqlite3";
-import { resolve } from "path";
+import postgres from "postgres";
 
-const DB_PATH = resolve(process.cwd(), "pos.db");
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://openpos:openpos123@localhost:5432/openpos";
 
-let sqlite: Database.Database;
-let _db: any;
+let pgClient: ReturnType<typeof postgres>;
+let _initialized = false;
 
-function getDb() {
-  if (!sqlite) {
-    sqlite = new Database(DB_PATH);
-    sqlite.pragma("journal_mode = WAL");
-    initTables();
+export function getSql() {
+  if (!pgClient) {
+    pgClient = postgres(DATABASE_URL, { max: 10 });
   }
-  return sqlite;
+  return pgClient;
 }
 
-function getDrizzleDb() {
-  if (!_db) {
-    const dbInstance = getDb();
-    // Minimal Drizzle-compatible wrapper
-    _db = createDrizzleProxy(dbInstance);
+// ── Convert ? placeholders to $1, $2... ────────────────────────────────────
+function toPg(sqlStr: string, params: any[] = []): { text: string; args: any[] } {
+  let i = 0;
+  const text = sqlStr.replace(/\?/g, () => `$${++i}`);
+  return { text, args: params };
+}
+
+// ── Drizzle-compatible wrapper ──────────────────────────────────────────────
+
+class PgQuery {
+  private _sql: string;
+  private _params: any[];
+  private _db: PgDb;
+
+  constructor(db: PgDb, sql: string, params: any[] = []) {
+    this._db = db;
+    this._sql = sql;
+    this._params = params;
   }
-  return _db;
+
+  then(resolve: any, reject?: any) {
+    return this.all().then(resolve, reject);
+  }
+
+  async all() {
+    const pg = toPg(this._sql, this._params);
+    const result = await getSql().unsafe(pg.text, pg.args);
+    return result;
+  }
+
+  async get() {
+    const rows = await this.all();
+    return rows[0] ?? undefined;
+  }
+
+  async run() {
+    const pg = toPg(this._sql, this._params);
+    const result = await getSql().unsafe(pg.text, pg.args);
+    return { changes: result.count, lastInsertRowid: result[0]?.id ?? null };
+  }
 }
 
-function createDrizzleProxy(db: Database.Database) {
-  return {
-    select(fields?: any) {
-      return new SelectBuilder(db, fields);
-    },
-    insert(table: any) {
-      return new InsertBuilder(db, table);
-    },
-    update(table: any) {
-      return new UpdateBuilder(db, table);
-    },
-    delete(table: any) {
-      return new DeleteBuilder(db, table);
-    },
-    run(sql: string, params?: any[]) {
-      return db.prepare(sql).run(...(params || []));
-    },
-    exec(sql: string) {
-      return db.exec(sql);
-    },
-    all(sql: string, params?: any[]) {
-      return db.prepare(sql).all(...(params || []));
-    },
-    get(sql: string, params?: any[]) {
-      return db.prepare(sql).get(...(params || []));
-    },
-  };
-}
-
-class SelectBuilder {
+class PgSelectBuilder {
   private _table: any;
   private _fields: any;
   private _conditions: string[] = [];
@@ -62,9 +63,9 @@ class SelectBuilder {
   private _limitVal: number = 0;
   private _offsetVal: number = 0;
   private _groupBy: string = "";
-  private _db: Database.Database;
+  private _db: PgDb;
 
-  constructor(db: Database.Database, fields?: any) {
+  constructor(db: PgDb, fields?: any) {
     this._db = db;
     this._fields = fields;
   }
@@ -76,7 +77,10 @@ class SelectBuilder {
 
   where(condition: any) {
     if (condition && condition._sql) {
-      this._conditions.push(condition._sql);
+      // Convert ? to $N for this fragment
+      let offset = this._params.length;
+      const sql = condition._sql.replace(/\?/g, () => `$${++offset}`);
+      this._conditions.push(sql);
       this._params.push(...(condition._params || []));
     } else if (typeof condition === "string") {
       this._conditions.push(condition);
@@ -116,54 +120,48 @@ class SelectBuilder {
     return this;
   }
 
-  private _build(): { sql: string; params: any[] } {
+  private _build(): { text: string; args: any[] } {
     const tableName = this._table?._?.name || this._table?.name || "unknown";
-    let sql = `SELECT * FROM "${tableName}"`;
+    let q = `SELECT * FROM "${tableName}"`;
     if (this._conditions.length > 0) {
-      sql += ` WHERE ${this._conditions.join(" AND ")}`;
+      q += ` WHERE ${this._conditions.join(" AND ")}`;
     }
     if (this._groupBy) {
-      sql += ` GROUP BY ${this._groupBy}`;
+      q += ` GROUP BY ${this._groupBy}`;
     }
     if (this._orderBy) {
-      sql += ` ORDER BY ${this._orderBy}`;
+      q += ` ORDER BY ${this._orderBy}`;
     }
     if (this._limitVal > 0) {
-      sql += ` LIMIT ${this._limitVal}`;
+      q += ` LIMIT ${this._limitVal}`;
     }
     if (this._offsetVal > 0) {
-      sql += ` OFFSET ${this._offsetVal}`;
+      q += ` OFFSET ${this._offsetVal}`;
     }
-    return { sql, params: this._params };
+    return { text: q, args: this._params };
   }
 
-  all() {
-    const { sql, params } = this._build();
-    return this._db.prepare(sql).all(...params);
+  async all() {
+    const { text, args } = this._build();
+    return getSql().unsafe(text, args);
   }
 
-  get() {
-    const { sql, params } = this._build();
-    return this._db.prepare(sql).get(...params);
+  async get() {
+    const rows = await this.all();
+    return rows[0] ?? undefined;
   }
 
   then(resolve: any, reject?: any) {
-    try {
-      resolve(this.all());
-    } catch (e) {
-      if (reject) reject(e);
-      else throw e;
-    }
+    return this.all().then(resolve, reject);
   }
 }
 
-class InsertBuilder {
-  private _db: Database.Database;
+class PgInsertBuilder {
   private _table: any;
   private _values: any = {};
+  private _onConflict: any;
 
-  constructor(db: Database.Database, table: any) {
-    this._db = db;
+  constructor(_db: PgDb, table: any) {
     this._table = table;
   }
 
@@ -173,46 +171,43 @@ class InsertBuilder {
   }
 
   onConflictDoUpdate(config: any) {
-    // Store for later execution
     this._onConflict = config;
     return this;
   }
 
-  private _onConflict: any;
-
-  run() {
+  async run() {
     const tableName = this._table?._?.name || this._table?.name || "unknown";
     const keys = Object.keys(this._values);
-    const placeholders = keys.map(() => "?").join(", ");
-    const columns = keys.map((k) => `"${k}"`).join(", ");
+    const cols = keys.map((k) => `"${camelToSnake(k)}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
     const values = keys.map((k) => this._values[k]);
 
     if (this._onConflict) {
-      const target = this._onConflict.target;
+      const target = camelToSnake(this._onConflict.target);
       const setFields = this._onConflict.set;
       const setKeys = Object.keys(setFields);
-      const setClause = setKeys.map((k) => `"${k}" = ?`).join(", ");
+      const setClause = setKeys.map((k, i) => `"${camelToSnake(k)}" = $${keys.length + i + 1}`).join(", ");
       const setValues = setKeys.map((k) => setFields[k]);
 
-      const sql = `INSERT INTO "${tableName}" (${columns}) VALUES (${placeholders})
-        ON CONFLICT("${target}") DO UPDATE SET ${setClause}`;
-      return this._db.prepare(sql).run(...values, ...setValues);
+      const q = `INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})
+        ON CONFLICT ("${target}") DO UPDATE SET ${setClause}`;
+      const result = await getSql().unsafe(q, [...values, ...setValues]);
+      return { changes: result.count, lastInsertRowid: result[0]?.id ?? null };
     }
 
-    const sql = `INSERT INTO "${tableName}" (${columns}) VALUES (${placeholders})`;
-    return this._db.prepare(sql).run(...values);
+    const q = `INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`;
+    const result = await getSql().unsafe(q, values);
+    return { changes: result.count, lastInsertRowid: result[0]?.id ?? null };
   }
 }
 
-class UpdateBuilder {
-  private _db: Database.Database;
+class PgUpdateBuilder {
   private _table: any;
   private _set: any = {};
   private _conditions: string[] = [];
   private _params: any[] = [];
 
-  constructor(db: Database.Database, table: any) {
-    this._db = db;
+  constructor(_db: PgDb, table: any) {
     this._table = table;
   }
 
@@ -223,7 +218,9 @@ class UpdateBuilder {
 
   where(condition: any) {
     if (condition && condition._sql) {
-      this._conditions.push(condition._sql);
+      let offset = this._params.length;
+      const sql = condition._sql.replace(/\?/g, () => `$${++offset}`);
+      this._conditions.push(sql);
       this._params.push(...(condition._params || []));
     } else if (typeof condition === "string") {
       this._conditions.push(condition);
@@ -231,7 +228,7 @@ class UpdateBuilder {
     return this;
   }
 
-  run() {
+  async run() {
     const tableName = this._table?._?.name || this._table?.name || "unknown";
     const keys = Object.keys(this._set);
     const setParts: string[] = [];
@@ -240,37 +237,43 @@ class UpdateBuilder {
     for (const key of keys) {
       const val = this._set[key];
       if (val && val._sql) {
-        setParts.push(`"${key}" = ${val._sql}`);
+        setParts.push(`"${camelToSnake(key)}" = ${val._sql}`);
         this._params.push(...(val._params || []));
       } else {
-        setParts.push(`"${key}" = ?`);
+        setParts.push(`"${camelToSnake(key)}" = $${setValues.length + 1}`);
         setValues.push(val);
       }
     }
 
-    let sql = `UPDATE "${tableName}" SET ${setParts.join(", ")}`;
+    let q = `UPDATE "${tableName}" SET ${setParts.join(", ")}`;
     if (this._conditions.length > 0) {
-      sql += ` WHERE ${this._conditions.join(" AND ")}`;
+      const offset = setValues.length;
+      const resolvedConditions = this._conditions.map((c) =>
+        c.replace(/\$(\d+)/g, (_, n) => `$${Number(n) + offset}`)
+      );
+      q += ` WHERE ${resolvedConditions.join(" AND ")}`;
     }
 
-    return this._db.prepare(sql).run(...setValues, ...this._params);
+    const allParams = [...setValues, ...this._params];
+    const result = await getSql().unsafe(q, allParams);
+    return { changes: result.count };
   }
 }
 
-class DeleteBuilder {
-  private _db: Database.Database;
+class PgDeleteBuilder {
   private _table: any;
   private _conditions: string[] = [];
   private _params: any[] = [];
 
-  constructor(db: Database.Database, table: any) {
-    this._db = db;
+  constructor(_db: PgDb, table: any) {
     this._table = table;
   }
 
   where(condition: any) {
     if (condition && condition._sql) {
-      this._conditions.push(condition._sql);
+      let offset = this._params.length;
+      const sql = condition._sql.replace(/\?/g, () => `$${++offset}`);
+      this._conditions.push(sql);
       this._params.push(...(condition._params || []));
     } else if (typeof condition === "string") {
       this._conditions.push(condition);
@@ -278,17 +281,74 @@ class DeleteBuilder {
     return this;
   }
 
-  run() {
+  async run() {
     const tableName = this._table?._?.name || this._table?.name || "unknown";
-    let sql = `DELETE FROM "${tableName}"`;
+    let q = `DELETE FROM "${tableName}"`;
     if (this._conditions.length > 0) {
-      sql += ` WHERE ${this._conditions.join(" AND ")}`;
+      q += ` WHERE ${this._conditions.join(" AND ")}`;
     }
-    return this._db.prepare(sql).run(...this._params);
+    const result = await getSql().unsafe(q, this._params);
+    return { changes: result.count };
   }
 }
 
-// ── Schema objects (minimal, just name for table resolution) ────────────────
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+}
+
+class PgDb {
+  async prepare(sql: string) {
+    return new PgQuery(this, sql);
+  }
+
+  async exec(sql: string) {
+    await getSql().unsafe(sql);
+  }
+
+  async transaction<T>(fn: () => T | Promise<T>): Promise<T> {
+    return getSql().begin(async (tx) => {
+      // Override getSql for the duration of the transaction
+      return fn();
+    });
+  }
+
+  select(fields?: any) {
+    return new PgSelectBuilder(this, fields);
+  }
+
+  insert(table: any) {
+    return new PgInsertBuilder(this, table);
+  }
+
+  update(table: any) {
+    return new PgUpdateBuilder(this, table);
+  }
+
+  delete(table: any) {
+    return new PgDeleteBuilder(this, table);
+  }
+
+  async run(sql: string, params?: any[]) {
+    const pg = toPg(sql, params || []);
+    const result = await getSql().unsafe(pg.text, pg.args);
+    return { changes: result.count };
+  }
+
+  async all(sql: string, params?: any[]) {
+    const pg = toPg(sql, params || []);
+    return getSql().unsafe(pg.text, pg.args);
+  }
+
+  async get(sql: string, params?: any[]) {
+    const pg = toPg(sql, params || []);
+    const rows = await getSql().unsafe(pg.text, pg.args);
+    return rows[0] ?? undefined;
+  }
+}
+
+const dbInstance = new PgDb();
+
+// ── Schema objects ────────────────────────────────────────────────────────
 
 export const schema = {
   config: { _: { name: "config" }, key: "key", value: "value" },
@@ -358,7 +418,7 @@ export const schema = {
   },
 };
 
-// ── SQL tagged template helper ──────────────────────────────────────────────
+// ── SQL tagged template helper ────────────────────────────────────────────
 
 export function sql(strings: TemplateStringsArray, ...values: any[]) {
   let result = "";
@@ -371,7 +431,7 @@ export function sql(strings: TemplateStringsArray, ...values: any[]) {
         result += val._sql;
         params.push(...val._params);
       } else {
-        result += "?";
+        result += `?`;
         params.push(val);
       }
     }
@@ -379,7 +439,7 @@ export function sql(strings: TemplateStringsArray, ...values: any[]) {
   return { _sql: result, _params: params };
 }
 
-// ── Config helpers ──────────────────────────────────────────────────────────
+// ── Config helpers ────────────────────────────────────────────────────────
 
 export const CONFIG_KEYS = {
   LAST_TICKET: "lastTicketNum",
@@ -405,147 +465,146 @@ export const CONFIG_KEYS = {
   TERMS_ACCEPTED: "termsAccepted",
 } as const;
 
-export function getConfig(key: string): string | null {
+export async function getConfig(key: string): Promise<string | null> {
   try {
-    const db = getDb();
-    const row = db.prepare("SELECT value FROM config WHERE key = ?").get(key) as any;
+    const row = await dbInstance.get("SELECT value FROM config WHERE key = $1", [key]) as any;
     return row?.value ?? null;
   } catch {
     return null;
   }
 }
 
-export function setConfig(key: string, value: string): boolean {
+export async function setConfig(key: string, value: string): Promise<boolean> {
   try {
-    const db = getDb();
-    db.prepare(
-      `INSERT INTO config (key, value, updated_at) VALUES (?, ?, datetime('now'))
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    ).run(key, value);
+    await dbInstance.run(
+      `INSERT INTO config (key, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,
+      [key, value]
+    );
     return true;
   } catch {
     return false;
   }
 }
 
-// ── Client helpers ──────────────────────────────────────────────────────────
+// ── Client helpers ────────────────────────────────────────────────────────
 
-function getNextClientCode(): string {
-  const db = getDb();
-  const row = db.prepare("SELECT code FROM clients ORDER BY id DESC LIMIT 1").get() as any;
+async function getNextClientCode(): Promise<string> {
+  const row = await dbInstance.get("SELECT code FROM clients ORDER BY id DESC LIMIT 1") as any;
   if (!row) return "CL-00001";
   const lastNum = parseInt(row.code.replace("CL-", ""), 10);
   return `CL-${String(lastNum + 1).padStart(5, "0")}`;
 }
 
-export function getClientByRfc(rfc: string): any | null {
+export async function getClientByRfc(rfc: string): Promise<any | null> {
   try {
-    const db = getDb();
-    return db.prepare("SELECT * FROM clients WHERE rfc = ?").get(rfc) ?? null;
+    return await dbInstance.get("SELECT * FROM clients WHERE rfc = $1", [rfc]) ?? null;
   } catch {
     return null;
   }
 }
 
-export function getOrCreateClient(data: {
+export async function getOrCreateClient(data: {
   rfc: string;
   razonSocial: string;
   email?: string;
   telefono?: string;
   direccion?: string;
   regimenFiscal?: string;
-}): any {
-  const existing = getClientByRfc(data.rfc);
+}): Promise<any> {
+  const existing = await getClientByRfc(data.rfc);
   if (existing) return existing;
 
-  const db = getDb();
-  const code = getNextClientCode();
+  const code = await getNextClientCode();
   const now = new Date().toISOString();
 
-  db.prepare(
+  await dbInstance.run(
     `INSERT INTO clients (code, rfc, razon_social, email, telefono, direccion, regimen_fiscal, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(code, data.rfc, data.razonSocial, data.email || null, data.telefono || null, data.direccion || null, data.regimenFiscal || null, now, now);
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [code, data.rfc, data.razonSocial, data.email || null, data.telefono || null, data.direccion || null, data.regimenFiscal || null, now, now]
+  );
 
   return getClientByRfc(data.rfc)!;
 }
 
-export function listClients(search?: string): any[] {
+export async function listClients(search?: string): Promise<any[]> {
   try {
-    const db = getDb();
     if (search) {
-      return db.prepare(
-        `SELECT * FROM clients WHERE rfc LIKE ? OR razon_social LIKE ? OR email LIKE ? OR code LIKE ? ORDER BY razon_social ASC`
-      ).all(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+      return await dbInstance.all(
+        `SELECT * FROM clients WHERE rfc LIKE $1 OR razon_social LIKE $1 OR email LIKE $1 OR code LIKE $1 ORDER BY razon_social ASC`,
+        [`%${search}%`]
+      );
     }
-    return db.prepare("SELECT * FROM clients ORDER BY razon_social ASC").all();
+    return await dbInstance.all("SELECT * FROM clients ORDER BY razon_social ASC");
   } catch {
     return [];
   }
 }
 
-// ── Product search ──────────────────────────────────────────────────────────
+// ── Product search ────────────────────────────────────────────────────────
 
-export function searchProducts(query: string, offset = 0, limit = 50): { items: any[]; total: number } {
-  const db = getDb();
+export async function searchProducts(query: string, offset = 0, limit = 50): Promise<{ items: any[]; total: number }> {
   const q = `%${query}%`;
 
   const countRow = query
-    ? db.prepare(
-        `SELECT COUNT(*) as count FROM products WHERE active = 1 AND (name LIKE ? OR sku LIKE ? OR barcode LIKE ?)`
-      ).get(q, q, q) as any
-    : db.prepare(`SELECT COUNT(*) as count FROM products WHERE active = 1`).get() as any;
+    ? await dbInstance.get(
+        `SELECT COUNT(*)::int as count FROM products WHERE active = 1 AND (name LIKE $1 OR sku LIKE $1 OR barcode LIKE $1)`,
+        [q]
+      ) as any
+    : await dbInstance.get(`SELECT COUNT(*)::int as count FROM products WHERE active = 1`) as any;
 
   const items = query
-    ? db.prepare(
-        `SELECT * FROM products WHERE active = 1 AND (name LIKE ? OR sku LIKE ? OR barcode LIKE ?) ORDER BY name ASC LIMIT ? OFFSET ?`
-      ).all(q, q, q, limit, offset)
-    : db.prepare(
-        `SELECT * FROM products WHERE active = 1 ORDER BY name ASC LIMIT ? OFFSET ?`
-      ).all(limit, offset);
+    ? await dbInstance.all(
+        `SELECT * FROM products WHERE active = 1 AND (name LIKE $1 OR sku LIKE $1 OR barcode LIKE $1) ORDER BY name ASC LIMIT $2 OFFSET $3`,
+        [q, limit, offset]
+      )
+    : await dbInstance.all(
+        `SELECT * FROM products WHERE active = 1 ORDER BY name ASC LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      );
 
   return { items, total: countRow?.count || 0 };
 }
 
-// ── Init tables ─────────────────────────────────────────────────────────────
+// ── Init tables ───────────────────────────────────────────────────────────
 
-function initTables() {
-  const db = getDb();
-  db.exec(`
+async function initTables() {
+  const s = getSql();
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
-  db.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS products (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         SERIAL PRIMARY KEY,
       barcode    TEXT UNIQUE,
       sku        TEXT NOT NULL UNIQUE,
       name       TEXT NOT NULL,
-      price      REAL NOT NULL,
-      cost       REAL DEFAULT 0,
+      price      DOUBLE PRECISION NOT NULL,
+      cost       DOUBLE PRECISION DEFAULT 0,
       category   TEXT NOT NULL DEFAULT 'GEN',
-      stock      REAL NOT NULL DEFAULT 0,
-      min_stock  REAL DEFAULT 5,
+      stock      DOUBLE PRECISION NOT NULL DEFAULT 0,
+      min_stock  DOUBLE PRECISION DEFAULT 5,
       unit_type  TEXT NOT NULL DEFAULT 'pza',
-      unit_qty   REAL DEFAULT 1,
+      unit_qty   DOUBLE PRECISION DEFAULT 1,
       active     INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (NOW()::text),
+      updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
-  db.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS sales (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         SERIAL PRIMARY KEY,
       ticket     TEXT NOT NULL,
-      subtotal   REAL NOT NULL,
-      tax        REAL NOT NULL,
-      discount   REAL DEFAULT 0,
-      total      REAL NOT NULL,
-      received   REAL DEFAULT 0,
-      change     REAL DEFAULT 0,
+      subtotal   DOUBLE PRECISION NOT NULL,
+      tax        DOUBLE PRECISION NOT NULL,
+      discount   DOUBLE PRECISION DEFAULT 0,
+      total      DOUBLE PRECISION NOT NULL,
+      received   DOUBLE PRECISION DEFAULT 0,
+      change     DOUBLE PRECISION DEFAULT 0,
       method     TEXT NOT NULL,
       status     TEXT DEFAULT 'completed',
       items      TEXT NOT NULL,
@@ -562,29 +621,27 @@ function initTables() {
       cfdi_error TEXT
     )
   `);
-  const duplicateTickets = db.prepare(
-    "SELECT ticket FROM sales GROUP BY ticket HAVING COUNT(*) > 1 LIMIT 1"
-  ).all();
-  if (duplicateTickets.length === 0) {
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_ticket_unique ON sales(ticket)");
-  } else {
-    db.exec("CREATE INDEX IF NOT EXISTS idx_sales_ticket ON sales(ticket)");
+  // Unique index on ticket - skip if duplicates exist
+  try {
+    await s.unsafe(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_ticket_unique ON sales(ticket)`);
+  } catch {
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_sales_ticket ON sales(ticket)`);
   }
-  db.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS users (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      id         SERIAL PRIMARY KEY,
       username   TEXT NOT NULL UNIQUE,
       name       TEXT NOT NULL,
       pin        TEXT NOT NULL,
       role       TEXT NOT NULL DEFAULT 'cashier',
       active     INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (NOW()::text),
+      updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
-  db.exec(`
+  await s.unsafe(`
     CREATE TABLE IF NOT EXISTS clients (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      id            SERIAL PRIMARY KEY,
       code          TEXT NOT NULL UNIQUE,
       rfc           TEXT NOT NULL UNIQUE,
       razon_social  TEXT NOT NULL,
@@ -592,15 +649,15 @@ function initTables() {
       telefono      TEXT,
       direccion     TEXT,
       regimen_fiscal TEXT,
-      puntos        REAL DEFAULT 0,
-      created_at    TEXT DEFAULT (datetime('now')),
-      updated_at    TEXT DEFAULT (datetime('now'))
+      puntos        DOUBLE PRECISION DEFAULT 0,
+      created_at    TEXT DEFAULT (NOW()::text),
+      updated_at    TEXT DEFAULT (NOW()::text)
     )
   `);
-  initDefaultConfig();
+  await initDefaultConfig();
 }
 
-function initDefaultConfig() {
+async function initDefaultConfig() {
   const defaults: Record<string, string> = {
     [CONFIG_KEYS.LAST_TICKET]: "1",
     [CONFIG_KEYS.STORE_NAME]: "MI TIENDA",
@@ -623,14 +680,20 @@ function initDefaultConfig() {
     [CONFIG_KEYS.BILLING_SANDBOX]: "true",
   };
   for (const [key, defaultValue] of Object.entries(defaults)) {
-    if (getConfig(key) === null) {
-      setConfig(key, defaultValue);
+    const existing = await getConfig(key);
+    if (existing === null) {
+      await setConfig(key, defaultValue);
     }
   }
 }
 
-export function initDb() {
-  getDb();
+export async function initDb() {
+  if (!_initialized) {
+    await initTables();
+    _initialized = true;
+  }
 }
 
-export { getDb as getRawDb };
+export function getRawDb() {
+  return dbInstance;
+}

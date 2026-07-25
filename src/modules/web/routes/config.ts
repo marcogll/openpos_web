@@ -7,7 +7,7 @@ export const configRoutes = new Hono();
 configRoutes.get("/", async (c) => {
   try {
     const db = getRawDb();
-    const rows = db.prepare("SELECT * FROM config").all() as any[];
+    const rows = await db.all("SELECT * FROM config") as any[];
     const result: Record<string, string> = {};
     for (const row of rows) {
       result[row.key] = row.value;
@@ -21,7 +21,7 @@ configRoutes.get("/", async (c) => {
 configRoutes.get("/:key", async (c) => {
   try {
     const key = c.req.param("key");
-    const value = getConfig(key);
+    const value = await getConfig(key);
     if (value === null) return c.json({ error: "Config key not found" }, 404);
     return c.json({ key, value });
   } catch (err) {
@@ -34,7 +34,7 @@ configRoutes.put("/", requireRole("admin"), async (c) => {
     const body = await c.req.json();
     let allSaved = true;
     for (const [key, value] of Object.entries(body)) {
-      const ok = setConfig(key, String(value));
+      const ok = await setConfig(key, String(value));
       if (!ok) allSaved = false;
     }
     if (!allSaved) return c.json({ error: "Failed to update some config keys" }, 500);
@@ -49,7 +49,7 @@ configRoutes.put("/:key", requireRole("admin"), async (c) => {
     const key = c.req.param("key");
     const body = await c.req.json();
     if (body.value === undefined) return c.json({ error: "value is required" }, 400);
-    const success = setConfig(key, String(body.value));
+    const success = await setConfig(key, String(body.value));
     if (!success) return c.json({ error: "Failed to update config" }, 500);
     return c.json({ key, value: String(body.value) });
   } catch (err) {

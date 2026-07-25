@@ -1,24 +1,21 @@
 import { Hono } from "hono";
-import { getRawDb } from "../webDb";
+import { getSql } from "../webDb";
 
 export const reportRoutes = new Hono();
 
 reportRoutes.get("/daily", async (c) => {
   try {
-    const db = getRawDb();
+    const sql = getSql();
     const date = c.req.query("date") || new Date().toISOString().slice(0, 10);
 
-    const summary = db.prepare(
-      `SELECT COALESCE(SUM(total), 0) as totalSales, COUNT(*) as totalTickets,
-              COALESCE(SUM(item_count), 0) as totalItems, COALESCE(SUM(discount), 0) as totalDiscount,
-              COALESCE(SUM(tax), 0) as totalTax
-       FROM sales WHERE date(created_at) = ? AND status = 'completed'`
-    ).get(date) as any;
+    const summaryRows = await sql`SELECT COALESCE(SUM(total), 0)::double precision as "totalSales", COUNT(*)::int as "totalTickets",
+            COALESCE(SUM(item_count), 0)::int as "totalItems", COALESCE(SUM(discount), 0)::double precision as "totalDiscount",
+            COALESCE(SUM(tax), 0)::double precision as "totalTax"
+     FROM sales WHERE DATE(created_at::timestamp) = ${date} AND status = 'completed'`;
+    const summary = summaryRows[0] as any;
 
-    const byMethodRows = db.prepare(
-      `SELECT method, COUNT(*) as count, SUM(total) as total
-       FROM sales WHERE date(created_at) = ? AND status = 'completed' GROUP BY method`
-    ).all(date) as any[];
+    const byMethodRows = await sql`SELECT method, COUNT(*)::int as count, SUM(total)::double precision as total
+     FROM sales WHERE DATE(created_at::timestamp) = ${date} AND status = 'completed' GROUP BY method`;
 
     const byMethod: Record<string, { count: number; total: number }> = {};
     for (const row of byMethodRows) {
@@ -41,14 +38,12 @@ reportRoutes.get("/daily", async (c) => {
 
 reportRoutes.get("/method", async (c) => {
   try {
-    const db = getRawDb();
+    const sql = getSql();
     const from = c.req.query("from") || new Date().toISOString().slice(0, 10);
     const to = c.req.query("to") || from;
 
-    const results = db.prepare(
-      `SELECT method, COUNT(*) as count, SUM(total) as total
-       FROM sales WHERE date(created_at) BETWEEN ? AND ? AND status = 'completed' GROUP BY method`
-    ).all(from, to);
+    const results = await sql`SELECT method, COUNT(*)::int as count, SUM(total)::double precision as total
+     FROM sales WHERE DATE(created_at::timestamp) BETWEEN ${from} AND ${to} AND status = 'completed' GROUP BY method`;
 
     return c.json({ from, to, methods: results });
   } catch (err) {
@@ -58,21 +53,20 @@ reportRoutes.get("/method", async (c) => {
 
 reportRoutes.get("/products", async (c) => {
   try {
-    const db = getRawDb();
+    const sql = getSql();
     const from = c.req.query("from") || new Date().toISOString().slice(0, 10);
     const to = c.req.query("to") || from;
     const limit = Math.min(50, Math.max(1, Number(c.req.query("limit")) || 10));
 
-    const allSales = db.prepare(
-      `SELECT items FROM sales WHERE date(created_at) BETWEEN ? AND ? AND status = 'completed'`
-    ).all(from, to) as any[];
+    const allSales = await sql`SELECT items FROM sales WHERE DATE(created_at::timestamp) BETWEEN ${from} AND ${to} AND status = 'completed'`;
 
     const productSales: Record<string, any> = {};
     for (const sale of allSales) {
       const items = JSON.parse(sale.items);
       for (const item of items) {
         if (!productSales[item.sku]) {
-          const product = db.prepare("SELECT name, category FROM products WHERE sku = ?").get(item.sku) as any;
+          const productRows = await sql`SELECT name, category FROM products WHERE sku = ${item.sku}`;
+          const product = productRows[0] as any;
           productSales[item.sku] = {
             sku: item.sku,
             name: product?.name || item.name || item.sku,
@@ -98,13 +92,11 @@ reportRoutes.get("/products", async (c) => {
 
 reportRoutes.get("/hourly", async (c) => {
   try {
-    const db = getRawDb();
+    const sql = getSql();
     const date = c.req.query("date") || new Date().toISOString().slice(0, 10);
 
-    const results = db.prepare(
-      `SELECT CAST(strftime('%H', created_at) AS INTEGER) as hour, COUNT(*) as count, SUM(total) as total
-       FROM sales WHERE date(created_at) = ? AND status = 'completed' GROUP BY strftime('%H', created_at)`
-    ).all(date) as any[];
+    const results = await sql`SELECT EXTRACT(HOUR FROM created_at::timestamp)::int as hour, COUNT(*)::int as count, SUM(total)::double precision as total
+     FROM sales WHERE DATE(created_at::timestamp) = ${date} AND status = 'completed' GROUP BY EXTRACT(HOUR FROM created_at::timestamp)`;
 
     const hourly: Record<number, { count: number; total: number }> = {};
     for (let h = 0; h < 24; h++) hourly[h] = { count: 0, total: 0 };

@@ -22,6 +22,7 @@ const sign = (input: string) =>
 const isPublicRequest = (path: string, method: string) =>
   path === "/" ||
   (path === "/auth/login" && method === "POST") ||
+  (path === "/auth/setup") ||
   (path === "/config" && method === "GET");
 
 export const createToken = (user: Omit<AuthUser, "exp">) => {

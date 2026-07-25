@@ -4,7 +4,7 @@ import { getRawDb } from "../webDb";
 export const importRoutes = new Hono();
 const VALID_UNIT_TYPES = new Set(["pza", "kg", "g", "lt", "ml", "m", "cm", "servicio"]);
 
-// ── Products import ──────────────────────────────────────────────────────────
+// ── Products import ──────────────────────────────────────────────────────
 
 type ProductRow = {
   sku: string;
@@ -51,7 +51,7 @@ importRoutes.post("/products", async (c) => {
     const rejected: { line: number; sku: string; reason: string }[] = [];
 
     // Get existing SKUs
-    const existingRows = db.prepare("SELECT sku FROM products").all() as any[];
+    const existingRows = await db.all("SELECT sku FROM products") as any[];
     const existingSkus = new Set(existingRows.map((r: any) => r.sku));
 
     // Check for duplicate SKUs within the file
@@ -89,18 +89,20 @@ importRoutes.post("/products", async (c) => {
 
       if (existsInDb) {
         if (updateExisting) {
-          db.prepare(
-            `UPDATE products SET name = ?, price = ?, cost = ?, category = ?, stock = ?, min_stock = ?, unit_type = ?, barcode = ?, updated_at = datetime('now')
-             WHERE sku = ?`
-          ).run(name, price, cost, category, stock, minStock, unitType, barcode, sku);
+          await db.run(
+            `UPDATE products SET name = $1, price = $2, cost = $3, category = $4, stock = $5, min_stock = $6, unit_type = $7, barcode = $8, updated_at = NOW()::text
+             WHERE sku = $9`,
+            [name, price, cost, category, stock, minStock, unitType, barcode, sku]
+          );
           updated.push(sku);
         }
         // If not updating, just skip silently
       } else {
-        db.prepare(
+        await db.run(
           `INSERT INTO products (sku, name, price, cost, category, stock, min_stock, unit_type, barcode, active, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))`
-        ).run(sku, name, price, cost, category, stock, minStock, unitType, barcode);
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, NOW()::text, NOW()::text)`,
+          [sku, name, price, cost, category, stock, minStock, unitType, barcode]
+        );
         created.push(sku);
         existingSkus.add(sku); // prevent duplicates within same batch
       }
@@ -119,7 +121,7 @@ importRoutes.post("/products", async (c) => {
   }
 });
 
-// ── Sales import ─────────────────────────────────────────────────────────────
+// ── Sales import ─────────────────────────────────────────────────────────
 
 type SaleTicket = {
   ticket: string;
@@ -146,9 +148,8 @@ importRoutes.post("/sales", async (c) => {
     const db = getRawDb();
 
     // Get existing ticket numbers
-    const existingTickets = new Set(
-      (db.prepare("SELECT ticket FROM sales").all() as any[]).map((r: any) => r.ticket)
-    );
+    const existingTicketsRows = await db.all("SELECT ticket FROM sales") as any[];
+    const existingTickets = new Set(existingTicketsRows.map((r: any) => r.ticket));
 
     const imported: string[] = [];
     const rejected: { ticket: string; reason: string }[] = [];
@@ -193,20 +194,21 @@ importRoutes.post("/sales", async (c) => {
       }
 
       // Insert sale
-      db.prepare(
+      await db.run(
         `INSERT INTO sales (ticket, subtotal, tax, discount, total, received, change, method, status, items, item_count, created_at, created_by)
-         VALUES (?, ?, ?, 0, ?, ?, 0, ?, 'completed', ?, ?, ?, ?)`
-      ).run(
-        ticket,
-        Math.round(subtotal * 100) / 100,
-        Math.round(tax * 100) / 100,
-        Math.round(total * 100) / 100,
-        total,
-        method,
-        JSON.stringify(t.items),
-        t.items.length,
-        t.createdAt,
-        t.createdBy || "import"
+         VALUES ($1, $2, $3, 0, $4, $5, 0, $6, 'completed', $7, $8, $9, $10)`,
+        [
+          ticket,
+          Math.round(subtotal * 100) / 100,
+          Math.round(tax * 100) / 100,
+          Math.round(total * 100) / 100,
+          total,
+          method,
+          JSON.stringify(t.items),
+          t.items.length,
+          t.createdAt,
+          t.createdBy || "import",
+        ]
       );
 
       imported.push(ticket);
