@@ -1,123 +1,295 @@
 @import "tailwindcss";
 
-/* ── Catppuccin Mocha (dark) ──────────────────────────────────────────────── */
+/* ── Catppuccin Mocha Balanced (dark) ────────────────────────────────────── */
 @theme {
-  /* shadcn-style semantic tokens mapped to Catppuccin Mocha */
   --radius: 0.75rem;
 
-  --color-background: #1e1e2e;
-  --color-foreground: #cdd6f4;
-  --color-card: #242438;
-  --color-card-foreground: #cdd6f4;
-  --color-popover: #242438;
-  --color-popover-foreground: #cdd6f4;
-  --color-primary: #cba6f7;
-  --color-primary-foreground: #181825;
-  --color-secondary: #313244;
-  --color-secondary-foreground: #cdd6f4;
+  /* shadcn semantic tokens */
+  --color-background: #11111B;
+  --color-foreground: #CDD6F4;
+  --color-card: #1E1E2E;
+  --color-card-foreground: #CDD6F4;
+  --color-popover: #1E1E2E;
+  --color-popover-foreground: #CDD6F4;
+  --color-primary: #89B4FA;
+  --color-primary-foreground: #11111B;
+  --color-secondary: #B4BEFE;
+  --color-secondary-foreground: #11111B;
   --color-muted: #313244;
-  --color-muted-foreground: #a6adc8;
-  --color-accent: #45475a;
-  --color-accent-foreground: #cdd6f4;
-  --color-destructive: #f38ba8;
-  --color-destructive-foreground: #181825;
-  --color-border: #45475a;
-  --color-input: #313244;
-  --color-ring: #cba6f7;
+  --color-muted-foreground: #A6ADC8;
+  --color-accent: #45475A;
+  --color-accent-foreground: #CDD6F4;
+  --color-destructive: #F38BA8;
+  --color-destructive-foreground: #11111B;
+  --color-border: #45475A;
+  --color-input: #181825;
+  --color-ring: #89B4FA;
 
-  /* Backward-compatible app tokens */
-  --color-bg: #1e1e2e;
-  --color-bg-panel: #242438;
-  --color-bg-section: #313244;
-  --color-bg-active: #45475a;
-  --color-bg-input: #181825;
-  --color-bg-dim: #45475a;
+  /* App tokens */
+  --color-bg: #11111B;
+  --color-bg-panel: #1E1E2E;
+  --color-bg-section: #181825;
+  --color-bg-active: #313244;
+  --color-bg-input: #11111B;
+  --color-bg-dim: #45475A;
 
   /* Text */
-  --color-text-primary: #cdd6f4;
-  --color-text-secondary: #bac2de;
-  --color-text-muted: #a6adc8;
-  --color-text-dim: #6c7086;
-  --color-text-ghost: #45475a;
+  --color-text-primary: #CDD6F4;
+  --color-text-secondary: #CDD6F4;
+  --color-text-muted: #A6ADC8;
+  --color-text-dim: #6C7086;
+  --color-text-ghost: #45475A;
 
-  /* Semantic — Catppuccin accents */
-  --color-green: #a6e3a1;
-  --color-green-bright: #94e2d5;
-  --color-amber: #f9e2af;
-  --color-amber-bright: #fab387;
-  --color-blue: #89b4fa;
-  --color-cyan: #94e2d5;
-  --color-red: #f38ba8;
-  --color-purple: #cba6f7;
-  --color-mauve: #cba6f7;
-  --color-lavender: #b4befe;
-  --color-orange: #fab387;
-  --color-peach: #fab387;
-  --color-pink: #f5c2e7;
-  --color-teal: #94e2d5;
-  --color-sky: #89dceb;
-  --color-flamingo: #f2cdcd;
-  --color-rosewater: #f5e0dc;
+  /* Semantic accent colors */
+  --color-green: #A6E3A1;
+  --color-green-bright: #94E2D5;
+  --color-amber: #F9E2AF;
+  --color-amber-bright: #FAB387;
+  --color-blue: #89B4FA;
+  --color-cyan: #74C7EC;
+  --color-red: #F38BA8;
+  --color-purple: #CBA6F7;
+  --color-mauve: #CBA6F7;
+  --color-lavender: #B4BEFE;
+  --color-orange: #FAB387;
+  --color-peach: #FAB387;
+  --color-pink: #F5C2E7;
+  --color-teal: #94E2D5;
+  --color-sky: #89DCEB;
+  --color-flamingo: #F2CDCD;
+  --color-rosewater: #F5E0DC;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* ── Extended palette tokens ── */
 
+  /* Sidebar */
+  --color-sidebar-bg: #181825;
+  --color-sidebar-icon: #A6ADC8;
+  --color-sidebar-icon-hover: #CDD6F4;
+  --color-sidebar-icon-active: #89B4FA;
+  --color-sidebar-border: #313244;
+
+  /* Header */
+  --color-header-bg: #181825;
+  --color-header-border: #313244;
+  --color-header-text: #CDD6F4;
+
+  /* Search */
+  --color-search-bg: #181825;
+  --color-search-border: #45475A;
+  --color-search-border-focus: #89B4FA;
+  --color-search-placeholder: #6C7086;
+  --color-search-text: #CDD6F4;
+
+  /* Card */
+  --color-card-bg: #1E1E2E;
+  --color-card-bg-hover: #313244;
+  --color-card-border: #313244;
+  --color-card-title: #CDD6F4;
+  --color-card-description: #A6ADC8;
+
+  /* Button */
+  --color-btn-primary-bg: #89B4FA;
+  --color-btn-primary-hover: #74C7EC;
+  --color-btn-primary-text: #11111B;
+  --color-btn-success-bg: #A6E3A1;
+  --color-btn-success-hover: #94E2D5;
+  --color-btn-success-text: #11111B;
+  --color-btn-secondary-bg: #313244;
+  --color-btn-secondary-hover: #45475A;
+  --color-btn-secondary-text: #CDD6F4;
+  --color-btn-danger-bg: #F38BA8;
+  --color-btn-danger-hover: #EBA0AC;
+  --color-btn-danger-text: #11111B;
+
+  /* Chips */
+  --color-chip-bg: transparent;
+  --color-chip-border: #45475A;
+  --color-chip-text: #A6ADC8;
+  --color-chip-active-bg: #89B4FA;
+  --color-chip-active-border: #89B4FA;
+  --color-chip-active-text: #11111B;
+
+  /* Ticket */
+  --color-ticket-bg: #181825;
+  --color-ticket-border: #313244;
+  --color-ticket-subtotal: #A6ADC8;
+  --color-ticket-tax: #A6ADC8;
+  --color-ticket-total: #A6E3A1;
+
+  /* Inventory */
+  --color-inv-normal: #6C7086;
+  --color-inv-low: #F9E2AF;
+  --color-inv-out: #F38BA8;
+
+  /* Categories */
+  --color-cat-services: #89B4FA;
+  --color-cat-cosmetics: #F5C2E7;
+  --color-cat-tools: #FAB387;
+  --color-cat-kits: #A6E3A1;
+  --color-cat-education: #74C7EC;
+  --color-cat-nails: #B4BEFE;
+
+  /* States */
+  --color-state-selected: #89B4FA;
+  --color-state-hover: #313244;
+  --color-state-disabled: #6C7086;
+  --color-state-focus: #89B4FA;
+
+  /* Chart */
+  --color-chart-blue: #89B4FA;
+  --color-chart-green: #A6E3A1;
+  --color-chart-yellow: #F9E2AF;
+  --color-chart-red: #F38BA8;
+  --color-chart-pink: #F5C2E7;
+  --color-chart-peach: #FAB387;
+  --color-chart-lavender: #B4BEFE;
+  --color-chart-sapphire: #74C7EC;
+  --color-chart-teal: #94E2D5;
+
+  /* Price / totals */
+  --color-price: #A6E3A1;
+  --color-subtotal: #A6ADC8;
+  --color-total: #A6E3A1;
+
+  /* Shadows */
   --shadow-card: 0 1px 2px rgb(17 17 27 / 0.28), 0 12px 32px rgb(17 17 27 / 0.18);
   --shadow-panel: 0 18px 48px rgb(17 17 27 / 0.24);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ── Light mode baseline ──────────────────────────────────────────────────── */
 .theme-light,
 .latte {
-  --color-background: #eff1f5;
-  --color-foreground: #4c4f69;
-  --color-card: #ffffff;
-  --color-card-foreground: #4c4f69;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #4c4f69;
-  --color-primary: #8839ef;
-  --color-primary-foreground: #eff1f5;
-  --color-secondary: #e6e9ef;
-  --color-secondary-foreground: #4c4f69;
-  --color-muted: #e6e9ef;
-  --color-muted-foreground: #6c6f85;
-  --color-accent: #dce0e8;
-  --color-accent-foreground: #4c4f69;
-  --color-destructive: #d20f39;
-  --color-destructive-foreground: #eff1f5;
-  --color-border: #ccd0da;
-  --color-input: #dce0e8;
-  --color-ring: #8839ef;
+  --color-background: #EFF1F5;
+  --color-foreground: #4C4F69;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #4C4F69;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #4C4F69;
+  --color-primary: #1E66F5;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #7287FD;
+  --color-secondary-foreground: #FFFFFF;
+  --color-muted: #E6E9EF;
+  --color-muted-foreground: #6C6F85;
+  --color-accent: #DCE0E8;
+  --color-accent-foreground: #4C4F69;
+  --color-destructive: #D20F39;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #CCD0DA;
+  --color-input: #E6E9EF;
+  --color-ring: #1E66F5;
 
-  --color-bg: #eff1f5;
-  --color-bg-panel: #ffffff;
-  --color-bg-section: #e6e9ef;
-  --color-bg-active: #ccd0da;
-  --color-bg-input: #ffffff;
-  --color-bg-dim: #ccd0da;
+  --color-bg: #EFF1F5;
+  --color-bg-panel: #FFFFFF;
+  --color-bg-section: #E6E9EF;
+  --color-bg-active: #DCE0E8;
+  --color-bg-input: #FFFFFF;
+  --color-bg-dim: #CCD0DA;
 
-  --color-text-primary: #4c4f69;
-  --color-text-secondary: #5c5f77;
-  --color-text-muted: #6c6f85;
-  --color-text-dim: #9ca0b0;
-  --color-text-ghost: #bcc0cc;
+  --color-text-primary: #4C4F69;
+  --color-text-secondary: #4C4F69;
+  --color-text-muted: #6C6F85;
+  --color-text-dim: #9CA0B0;
+  --color-text-ghost: #CCD0DA;
 
-  --color-green: #40a02b;
+  --color-green: #40A02B;
   --color-green-bright: #179299;
-  --color-amber: #df8e1d;
-  --color-amber-bright: #fe640b;
-  --color-blue: #1e66f5;
-  --color-cyan: #179299;
-  --color-red: #d20f39;
-  --color-purple: #8839ef;
-  --color-mauve: #8839ef;
-  --color-lavender: #7287fd;
-  --color-orange: #fe640b;
-  --color-peach: #fe640b;
-  --color-pink: #ea76cb;
+  --color-amber: #DF8E1D;
+  --color-amber-bright: #FE640B;
+  --color-blue: #1E66F5;
+  --color-cyan: #209FB5;
+  --color-red: #D20F39;
+  --color-purple: #8839EF;
+  --color-mauve: #8839EF;
+  --color-lavender: #7287FD;
+  --color-orange: #FE640B;
+  --color-peach: #FE640B;
+  --color-pink: #EA76CB;
   --color-teal: #179299;
-  --color-sky: #04a5e5;
-  --color-flamingo: #dd7878;
-  --color-rosewater: #dc8a78;
+  --color-sky: #04A5E5;
+  --color-flamingo: #DD7878;
+  --color-rosewater: #DC8A78;
+
+  /* Extended palette – light */
+  --color-sidebar-bg: #E6E9EF;
+  --color-sidebar-icon: #6C6F85;
+  --color-sidebar-icon-hover: #4C4F69;
+  --color-sidebar-icon-active: #1E66F5;
+  --color-sidebar-border: #CCD0DA;
+
+  --color-header-bg: #FFFFFF;
+  --color-header-border: #DCE0E8;
+  --color-header-text: #4C4F69;
+
+  --color-search-bg: #FFFFFF;
+  --color-search-border: #CCD0DA;
+  --color-search-border-focus: #1E66F5;
+  --color-search-placeholder: #9CA0B0;
+  --color-search-text: #4C4F69;
+
+  --color-card-bg: #FFFFFF;
+  --color-card-bg-hover: #F5F6FA;
+  --color-card-border: #DCE0E8;
+  --color-card-title: #4C4F69;
+  --color-card-description: #6C6F85;
+
+  --color-btn-primary-bg: #1E66F5;
+  --color-btn-primary-hover: #209FB5;
+  --color-btn-primary-text: #FFFFFF;
+  --color-btn-success-bg: #40A02B;
+  --color-btn-success-hover: #179299;
+  --color-btn-success-text: #FFFFFF;
+  --color-btn-secondary-bg: #E6E9EF;
+  --color-btn-secondary-hover: #DCE0E8;
+  --color-btn-secondary-text: #4C4F69;
+  --color-btn-danger-bg: #D20F39;
+  --color-btn-danger-hover: #E64553;
+  --color-btn-danger-text: #FFFFFF;
+
+  --color-chip-bg: transparent;
+  --color-chip-border: #CCD0DA;
+  --color-chip-text: #6C6F85;
+  --color-chip-active-bg: #1E66F5;
+  --color-chip-active-border: #1E66F5;
+  --color-chip-active-text: #FFFFFF;
+
+  --color-ticket-bg: #FFFFFF;
+  --color-ticket-border: #DCE0E8;
+  --color-ticket-subtotal: #6C6F85;
+  --color-ticket-tax: #6C6F85;
+  --color-ticket-total: #40A02B;
+
+  --color-inv-normal: #9CA0B0;
+  --color-inv-low: #DF8E1D;
+  --color-inv-out: #D20F39;
+
+  --color-cat-services: #1E66F5;
+  --color-cat-cosmetics: #EA76CB;
+  --color-cat-tools: #FE640B;
+  --color-cat-kits: #40A02B;
+  --color-cat-education: #209FB5;
+  --color-cat-nails: #7287FD;
+
+  --color-state-selected: #1E66F5;
+  --color-state-hover: #DCE0E8;
+  --color-state-disabled: #9CA0B0;
+  --color-state-focus: #1E66F5;
+
+  --color-chart-blue: #1E66F5;
+  --color-chart-green: #40A02B;
+  --color-chart-yellow: #DF8E1D;
+  --color-chart-red: #D20F39;
+  --color-chart-pink: #EA76CB;
+  --color-chart-peach: #FE640B;
+  --color-chart-lavender: #7287FD;
+  --color-chart-sapphire: #209FB5;
+  --color-chart-teal: #179299;
+
+  --color-price: #40A02B;
+  --color-subtotal: #6C6F85;
+  --color-total: #40A02B;
 
   --shadow-card: 0 1px 2px rgb(76 79 105 / 0.08), 0 12px 28px rgb(76 79 105 / 0.08);
   --shadow-panel: 0 18px 48px rgb(76 79 105 / 0.12);
@@ -125,35 +297,231 @@
 
 /* ── Interface color schemes ──────────────────────────────────────────────── */
 .theme-dark.scheme-standard {
-  --color-primary: #3b82f6;
-  --color-primary-foreground: #f8fafc;
-  --color-ring: #3b82f6;
-  --color-blue: #60a5fa;
-  --color-cyan: #22d3ee;
-  --color-purple: #a78bfa;
-  --color-mauve: #3b82f6;
-  --color-green: #22c55e;
-  --color-green-bright: #34d399;
-  --color-amber: #f59e0b;
-  --color-orange: #f97316;
-  --color-peach: #f97316;
-  --color-pink: #ec4899;
+  --color-background: #11111B;
+  --color-foreground: #CDD6F4;
+  --color-card: #1E1E2E;
+  --color-card-foreground: #CDD6F4;
+  --color-popover: #1E1E2E;
+  --color-popover-foreground: #CDD6F4;
+  --color-primary: #89B4FA;
+  --color-primary-foreground: #11111B;
+  --color-secondary: #B4BEFE;
+  --color-secondary-foreground: #11111B;
+  --color-muted: #313244;
+  --color-muted-foreground: #A6ADC8;
+  --color-accent: #45475A;
+  --color-accent-foreground: #CDD6F4;
+  --color-destructive: #F38BA8;
+  --color-destructive-foreground: #11111B;
+  --color-border: #45475A;
+  --color-input: #181825;
+  --color-ring: #89B4FA;
+  --color-bg: #11111B;
+  --color-bg-panel: #1E1E2E;
+  --color-bg-section: #181825;
+  --color-bg-active: #313244;
+  --color-bg-input: #11111B;
+  --color-bg-dim: #45475A;
+  --color-text-primary: #CDD6F4;
+  --color-text-secondary: #CDD6F4;
+  --color-text-muted: #A6ADC8;
+  --color-text-dim: #6C7086;
+  --color-green: #A6E3A1;
+  --color-green-bright: #94E2D5;
+  --color-amber: #F9E2AF;
+  --color-blue: #89B4FA;
+  --color-cyan: #74C7EC;
+  --color-red: #F38BA8;
+  --color-purple: #CBA6F7;
+  --color-mauve: #CBA6F7;
+  --color-lavender: #B4BEFE;
+  --color-orange: #FAB387;
+  --color-peach: #FAB387;
+  --color-pink: #F5C2E7;
+  --color-teal: #94E2D5;
+
+  --color-sidebar-bg: #181825;
+  --color-sidebar-icon: #A6ADC8;
+  --color-sidebar-icon-hover: #CDD6F4;
+  --color-sidebar-icon-active: #89B4FA;
+  --color-sidebar-border: #313244;
+
+  --color-header-bg: #181825;
+  --color-header-border: #313244;
+  --color-header-text: #CDD6F4;
+
+  --color-search-bg: #181825;
+  --color-search-border: #45475A;
+  --color-search-border-focus: #89B4FA;
+  --color-search-placeholder: #6C7086;
+  --color-search-text: #CDD6F4;
+
+  --color-card-bg: #1E1E2E;
+  --color-card-bg-hover: #313244;
+  --color-card-border: #313244;
+  --color-card-title: #CDD6F4;
+  --color-card-description: #A6ADC8;
+
+  --color-btn-primary-bg: #89B4FA;
+  --color-btn-primary-hover: #74C7EC;
+  --color-btn-primary-text: #11111B;
+  --color-btn-success-bg: #A6E3A1;
+  --color-btn-success-hover: #94E2D5;
+  --color-btn-success-text: #11111B;
+  --color-btn-secondary-bg: #313244;
+  --color-btn-secondary-hover: #45475A;
+  --color-btn-secondary-text: #CDD6F4;
+  --color-btn-danger-bg: #F38BA8;
+  --color-btn-danger-hover: #EBA0AC;
+  --color-btn-danger-text: #11111B;
+
+  --color-chip-bg: transparent;
+  --color-chip-border: #45475A;
+  --color-chip-text: #A6ADC8;
+  --color-chip-active-bg: #89B4FA;
+  --color-chip-active-border: #89B4FA;
+  --color-chip-active-text: #11111B;
+
+  --color-ticket-bg: #181825;
+  --color-ticket-border: #313244;
+  --color-ticket-subtotal: #A6ADC8;
+  --color-ticket-tax: #A6ADC8;
+  --color-ticket-total: #A6E3A1;
+
+  --color-inv-normal: #6C7086;
+  --color-inv-low: #F9E2AF;
+  --color-inv-out: #F38BA8;
+
+  --color-cat-services: #89B4FA;
+  --color-cat-cosmetics: #F5C2E7;
+  --color-cat-tools: #FAB387;
+  --color-cat-kits: #A6E3A1;
+  --color-cat-education: #74C7EC;
+  --color-cat-nails: #B4BEFE;
+
+  --color-state-selected: #89B4FA;
+  --color-state-hover: #313244;
+  --color-state-disabled: #6C7086;
+  --color-state-focus: #89B4FA;
+
+  --color-chart-blue: #89B4FA;
+  --color-chart-green: #A6E3A1;
+  --color-chart-yellow: #F9E2AF;
+  --color-chart-red: #F38BA8;
+  --color-chart-pink: #F5C2E7;
+  --color-chart-peach: #FAB387;
+  --color-chart-lavender: #B4BEFE;
+  --color-chart-sapphire: #74C7EC;
+  --color-chart-teal: #94E2D5;
+
+  --color-price: #A6E3A1;
+  --color-subtotal: #A6ADC8;
+  --color-total: #A6E3A1;
 }
 
 .theme-light.scheme-standard {
-  --color-primary: #2563eb;
-  --color-primary-foreground: #ffffff;
-  --color-ring: #2563eb;
-  --color-blue: #2563eb;
-  --color-cyan: #0891b2;
-  --color-purple: #7c3aed;
-  --color-mauve: #2563eb;
-  --color-green: #15803d;
-  --color-green-bright: #059669;
-  --color-amber: #b45309;
-  --color-orange: #c2410c;
-  --color-peach: #c2410c;
-  --color-pink: #be185d;
+  --color-primary: #1E66F5;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #7287FD;
+  --color-secondary-foreground: #FFFFFF;
+  --color-muted: #E6E9EF;
+  --color-muted-foreground: #6C6F85;
+  --color-accent: #DCE0E8;
+  --color-accent-foreground: #4C4F69;
+  --color-destructive: #D20F39;
+  --color-destructive-foreground: #FFFFFF;
+  --color-ring: #1E66F5;
+  --color-border: #CCD0DA;
+  --color-input: #E6E9EF;
+  --color-blue: #1E66F5;
+  --color-cyan: #209FB5;
+  --color-purple: #8839EF;
+  --color-mauve: #8839EF;
+  --color-green: #40A02B;
+  --color-green-bright: #179299;
+  --color-amber: #DF8E1D;
+  --color-orange: #FE640B;
+  --color-peach: #FE640B;
+  --color-pink: #EA76CB;
+  --color-teal: #179299;
+
+  --color-sidebar-bg: #E6E9EF;
+  --color-sidebar-icon: #6C6F85;
+  --color-sidebar-icon-hover: #4C4F69;
+  --color-sidebar-icon-active: #1E66F5;
+  --color-sidebar-border: #CCD0DA;
+
+  --color-header-bg: #FFFFFF;
+  --color-header-border: #DCE0E8;
+  --color-header-text: #4C4F69;
+
+  --color-search-bg: #FFFFFF;
+  --color-search-border: #CCD0DA;
+  --color-search-border-focus: #1E66F5;
+  --color-search-placeholder: #9CA0B0;
+  --color-search-text: #4C4F69;
+
+  --color-card-bg: #FFFFFF;
+  --color-card-bg-hover: #F5F6FA;
+  --color-card-border: #DCE0E8;
+  --color-card-title: #4C4F69;
+  --color-card-description: #6C6F85;
+
+  --color-btn-primary-bg: #1E66F5;
+  --color-btn-primary-hover: #209FB5;
+  --color-btn-primary-text: #FFFFFF;
+  --color-btn-success-bg: #40A02B;
+  --color-btn-success-hover: #179299;
+  --color-btn-success-text: #FFFFFF;
+  --color-btn-secondary-bg: #E6E9EF;
+  --color-btn-secondary-hover: #DCE0E8;
+  --color-btn-secondary-text: #4C4F69;
+  --color-btn-danger-bg: #D20F39;
+  --color-btn-danger-hover: #E64553;
+  --color-btn-danger-text: #FFFFFF;
+
+  --color-chip-bg: transparent;
+  --color-chip-border: #CCD0DA;
+  --color-chip-text: #6C6F85;
+  --color-chip-active-bg: #1E66F5;
+  --color-chip-active-border: #1E66F5;
+  --color-chip-active-text: #FFFFFF;
+
+  --color-ticket-bg: #FFFFFF;
+  --color-ticket-border: #DCE0E8;
+  --color-ticket-subtotal: #6C6F85;
+  --color-ticket-tax: #6C6F85;
+  --color-ticket-total: #40A02B;
+
+  --color-inv-normal: #9CA0B0;
+  --color-inv-low: #DF8E1D;
+  --color-inv-out: #D20F39;
+
+  --color-cat-services: #1E66F5;
+  --color-cat-cosmetics: #EA76CB;
+  --color-cat-tools: #FE640B;
+  --color-cat-kits: #40A02B;
+  --color-cat-education: #209FB5;
+  --color-cat-nails: #7287FD;
+
+  --color-state-selected: #1E66F5;
+  --color-state-hover: #DCE0E8;
+  --color-state-disabled: #9CA0B0;
+  --color-state-focus: #1E66F5;
+
+  --color-chart-blue: #1E66F5;
+  --color-chart-green: #40A02B;
+  --color-chart-yellow: #DF8E1D;
+  --color-chart-red: #D20F39;
+  --color-chart-pink: #EA76CB;
+  --color-chart-peach: #FE640B;
+  --color-chart-lavender: #7287FD;
+  --color-chart-sapphire: #209FB5;
+  --color-chart-teal: #179299;
+
+  --color-price: #40A02B;
+  --color-subtotal: #6C6F85;
+  --color-total: #40A02B;
 }
 
 .theme-dark.scheme-dracula {

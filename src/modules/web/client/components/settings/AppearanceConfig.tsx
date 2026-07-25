@@ -8,6 +8,7 @@ import {
   MonitorCog,
   Moon,
   Palette,
+  Receipt,
   Save,
   ShoppingBag,
   Store,
@@ -24,6 +25,13 @@ type AppearanceData = {
   tabTitle: string;
   faviconSource: FaviconSource;
   faviconUrl: string;
+  receiptColorInk: string;
+  receiptColorPaper: string;
+  receiptColorBackground: string;
+  receiptColorLine: string;
+  receiptColorAccent: string;
+  receiptColorAccentDeep: string;
+  receiptColorMuted: string;
 };
 
 type Preset = {
@@ -43,9 +51,9 @@ const COLOR_SCHEMES: {
 }[] = [
   {
     id: "standard",
-    label: "Estándar",
-    description: "Azul operativo, alto contraste y lectura neutral.",
-    swatches: ["#2563eb", "#15803d", "#c2410c"],
+    label: "Catppuccin",
+    description: "Mocha oscuro y Latte claro con acentos equilibrados.",
+    swatches: ["#89B4FA", "#a6e3a1", "#f9e2af"],
   },
   {
     id: "dracula",
@@ -117,7 +125,24 @@ const EMPTY: AppearanceData = {
   tabTitle: "",
   faviconSource: "favicon",
   faviconUrl: DEFAULT_FAVICON_URL,
+  receiptColorInk: "#1c1a19",
+  receiptColorPaper: "#faf7f3",
+  receiptColorBackground: "#e9e3da",
+  receiptColorLine: "#e4dcd3",
+  receiptColorAccent: "#a9834f",
+  receiptColorAccentDeep: "#8a6a3c",
+  receiptColorMuted: "#8c8378",
 };
+
+const RECEIPT_COLOR_FIELDS: { key: keyof AppearanceData; label: string }[] = [
+  { key: "receiptColorBackground", label: "Fondo" },
+  { key: "receiptColorPaper", label: "Papel" },
+  { key: "receiptColorInk", label: "Texto" },
+  { key: "receiptColorLine", label: "Líneas" },
+  { key: "receiptColorAccent", label: "Acento" },
+  { key: "receiptColorAccentDeep", label: "Acento oscuro" },
+  { key: "receiptColorMuted", label: "Texto suave" },
+];
 
 export function AppearanceConfig() {
   const addToast = useUIStore((s) => s.addToast);
@@ -140,6 +165,13 @@ export function AppearanceConfig() {
           tabTitle: data.tabTitle || "",
           faviconSource: isFaviconSource(data.faviconSource) ? data.faviconSource : "favicon",
           faviconUrl,
+          receiptColorInk: normalizeHexColor(data.receiptColorInk, EMPTY.receiptColorInk),
+          receiptColorPaper: normalizeHexColor(data.receiptColorPaper, EMPTY.receiptColorPaper),
+          receiptColorBackground: normalizeHexColor(data.receiptColorBackground, EMPTY.receiptColorBackground),
+          receiptColorLine: normalizeHexColor(data.receiptColorLine, EMPTY.receiptColorLine),
+          receiptColorAccent: normalizeHexColor(data.receiptColorAccent, EMPTY.receiptColorAccent),
+          receiptColorAccentDeep: normalizeHexColor(data.receiptColorAccentDeep, EMPTY.receiptColorAccentDeep),
+          receiptColorMuted: normalizeHexColor(data.receiptColorMuted, EMPTY.receiptColorMuted),
         });
       })
       .catch(() => addToast("Error al cargar interfaz", "error"))
@@ -171,6 +203,13 @@ export function AppearanceConfig() {
       tabTitle: config.tabTitle.trim().slice(0, 64),
       faviconSource: config.faviconSource,
       faviconUrl: normalizeFaviconUrl(config.faviconUrl),
+      receiptColorInk: normalizeHexColor(config.receiptColorInk, EMPTY.receiptColorInk),
+      receiptColorPaper: normalizeHexColor(config.receiptColorPaper, EMPTY.receiptColorPaper),
+      receiptColorBackground: normalizeHexColor(config.receiptColorBackground, EMPTY.receiptColorBackground),
+      receiptColorLine: normalizeHexColor(config.receiptColorLine, EMPTY.receiptColorLine),
+      receiptColorAccent: normalizeHexColor(config.receiptColorAccent, EMPTY.receiptColorAccent),
+      receiptColorAccentDeep: normalizeHexColor(config.receiptColorAccentDeep, EMPTY.receiptColorAccentDeep),
+      receiptColorMuted: normalizeHexColor(config.receiptColorMuted, EMPTY.receiptColorMuted),
     };
 
     setSaving(true);
@@ -267,6 +306,61 @@ export function AppearanceConfig() {
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-bg-active bg-bg/50 p-4">
+          <div className="flex items-center gap-3">
+            <Receipt className="h-5 w-5 text-peach" />
+            <div>
+              <h4 className="text-sm font-bold text-text-primary">Recibo digital</h4>
+              <p className="text-xs text-text-dim">
+                Colores para descarga, WhatsApp y webhook. El ticket impreso usa blanco y negro.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {RECEIPT_COLOR_FIELDS.map((field) => (
+                <ColorField
+                  key={field.key}
+                  label={field.label}
+                  value={String(config[field.key])}
+                  onChange={(value) =>
+                    setConfig((current) => ({
+                      ...current,
+                      [field.key]: value,
+                    }))
+                  }
+                />
+              ))}
+            </div>
+
+            <div
+              className="rounded-lg p-4"
+              style={{ backgroundColor: config.receiptColorBackground }}
+            >
+              <div
+                className="mx-auto w-40 p-4 text-center shadow-card"
+                style={{
+                  backgroundColor: config.receiptColorPaper,
+                  color: config.receiptColorInk,
+                }}
+              >
+                <div className="text-lg font-bold" style={{ color: config.receiptColorAccentDeep }}>
+                  Vanity
+                </div>
+                <div className="mt-2 h-px" style={{ backgroundColor: config.receiptColorLine }} />
+                <div className="mt-3 text-xs" style={{ color: config.receiptColorMuted }}>
+                  Ticket #0001
+                </div>
+                <div className="mt-3 flex justify-between text-xs">
+                  <span>Total</span>
+                  <span style={{ color: config.receiptColorAccentDeep }}>$0.00</span>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -386,6 +480,40 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-text-dim">
+        {label}
+      </span>
+      <span className="flex h-10 items-center gap-2 rounded-lg border border-bg-active bg-bg px-2">
+        <input
+          type="color"
+          value={normalizeHexColor(value, "#000000")}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-7 w-8 rounded border border-bg-active bg-transparent p-0"
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={(event) => onChange(normalizeHexColor(event.target.value, "#000000"))}
+          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-text-secondary outline-none"
+          maxLength={7}
+        />
+      </span>
+    </label>
+  );
+}
+
 function isFaviconSource(value: unknown): value is FaviconSource {
   return value === "favicon" || value === "google" || value === "custom";
 }
@@ -393,4 +521,9 @@ function isFaviconSource(value: unknown): value is FaviconSource {
 function isSafeCustomUrl(value: string) {
   const href = value.trim();
   return !href || normalizeFaviconUrl(href) === href;
+}
+
+function normalizeHexColor(value: unknown, fallback: string) {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
 }
