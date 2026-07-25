@@ -11,7 +11,7 @@ export function PosView() {
   const items = useCartStore((s) => s.items);
 
   return (
-    <div className="flex h-full flex-col gap-3 animate-fade-in lg:gap-4">
+    <div className="flex min-h-full flex-col gap-3 animate-fade-in lg:gap-4 xl:h-full xl:min-h-0">
       <div className="flex flex-col gap-3 rounded-lg border app-chrome-line bg-card/72 px-4 py-3 shadow-card backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-base font-semibold text-foreground">
@@ -30,9 +30,9 @@ export function PosView() {
       <SearchBar value={search} onChange={setSearch} />
 
       {/* Main content: Products + Cart */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row xl:gap-4">
+      <div className="flex flex-1 flex-col gap-3 xl:min-h-0 xl:flex-row xl:gap-4">
         {/* Products grid */}
-        <div className="min-h-0 min-w-0 flex-1">
+        <div className="min-h-[32rem] min-w-0 flex-1 xl:min-h-0">
           <ProductGrid search={search} />
         </div>
 
