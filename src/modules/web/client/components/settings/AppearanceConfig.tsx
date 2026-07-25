@@ -6,13 +6,17 @@ import {
   Image,
   Link as LinkIcon,
   MonitorCog,
+  Moon,
+  Palette,
   Save,
   ShoppingBag,
   Store,
+  Sun,
   Type,
 } from "lucide-react";
 import { applyBranding, DEFAULT_FAVICON_URL, normalizeFaviconUrl, normalizeTabTitle } from "../../branding";
 import { useUIStore } from "../../stores/uiStore";
+import type { ColorScheme } from "../../stores/uiStore";
 
 type FaviconSource = "favicon" | "google" | "custom";
 
@@ -30,6 +34,44 @@ type Preset = {
   icon: React.ElementType;
   href: string;
 };
+
+const COLOR_SCHEMES: {
+  id: ColorScheme;
+  label: string;
+  description: string;
+  swatches: string[];
+}[] = [
+  {
+    id: "standard",
+    label: "Estándar",
+    description: "Azul operativo, alto contraste y lectura neutral.",
+    swatches: ["#2563eb", "#15803d", "#c2410c"],
+  },
+  {
+    id: "dracula",
+    label: "Dracula",
+    description: "Morado y cian para turnos nocturnos.",
+    swatches: ["#bd93f9", "#8be9fd", "#ffb86c"],
+  },
+  {
+    id: "nord",
+    label: "Nord",
+    description: "Frío, calmado y con acentos discretos.",
+    swatches: ["#5e81ac", "#88c0d0", "#a3be8c"],
+  },
+  {
+    id: "gruvbox",
+    label: "Gruvbox",
+    description: "Cálido, contrastado y cómodo en pantallas largas.",
+    swatches: ["#fabd2f", "#83a598", "#b8bb26"],
+  },
+  {
+    id: "rose-pine",
+    label: "Rosé Pine",
+    description: "Suave, elegante y menos saturado.",
+    swatches: ["#b4637a", "#286983", "#ea9d34"],
+  },
+];
 
 const materialIcon = (path: string, fill: string) =>
   `data:image/svg+xml,${encodeURIComponent(
@@ -79,6 +121,10 @@ const EMPTY: AppearanceData = {
 
 export function AppearanceConfig() {
   const addToast = useUIStore((s) => s.addToast);
+  const themeMode = useUIStore((s) => s.themeMode);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const colorScheme = useUIStore((s) => s.colorScheme);
+  const setColorScheme = useUIStore((s) => s.setColorScheme);
   const [config, setConfig] = React.useState<AppearanceData>(EMPTY);
   const [storeName, setStoreName] = React.useState("");
   const [loading, setLoading] = React.useState(true);
@@ -171,6 +217,59 @@ export function AppearanceConfig() {
       </div>
 
       <form onSubmit={handleSave} className="p-6 space-y-6">
+        <section className="rounded-lg border border-bg-active bg-bg/50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <Palette className="h-5 w-5 text-blue" />
+              <div>
+                <h4 className="text-sm font-bold text-text-primary">Tema de operación</h4>
+                <p className="text-xs text-text-dim">Elige el modo y los colores de toda la app.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-bg-active bg-bg-panel px-4 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-active cursor-pointer"
+            >
+              {themeMode === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {themeMode === "dark" ? "Cambiar a claro" : "Cambiar a oscuro"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {COLOR_SCHEMES.map((scheme) => {
+              const active = scheme.id === colorScheme;
+              return (
+                <button
+                  key={scheme.id}
+                  type="button"
+                  onClick={() => setColorScheme(scheme.id)}
+                  className={`min-h-28 rounded-lg border p-3 text-left transition-colors cursor-pointer ${
+                    active
+                      ? "border-mauve bg-mauve/10 text-text-primary"
+                      : "border-bg-active bg-bg-panel text-text-secondary hover:bg-bg-active/55"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex gap-1.5">
+                      {scheme.swatches.map((swatch) => (
+                        <span
+                          key={swatch}
+                          className="h-5 w-5 rounded-full border border-white/20"
+                          style={{ backgroundColor: swatch }}
+                        />
+                      ))}
+                    </div>
+                    {active && <Check className="h-4 w-4 text-green" />}
+                  </div>
+                  <div className="mt-3 text-sm font-semibold">{scheme.label}</div>
+                  <div className="mt-1 text-xs leading-5 text-text-dim">{scheme.description}</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_18rem] gap-5">
           <div className="space-y-5">
             <Field label="Título del tab">

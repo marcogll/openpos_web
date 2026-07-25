@@ -50,6 +50,7 @@ type ReceiptConfig = {
   promptOnSale: boolean;
   defaultDelivery: ReceiptDelivery;
   printerEnabled: boolean;
+  printerWidth: number;
 };
 
 const METHODS: { id: Method; icon: React.ElementType; label: string }[] = [
@@ -123,6 +124,7 @@ export function PayModal({ onClose, onConfirm }: Props) {
     promptOnSale: true,
     defaultDelivery: "printed",
     printerEnabled: true,
+    printerWidth: 58,
   });
   const [storeLogoUrl, setStoreLogoUrl] = React.useState("");
   const [storeName, setStoreName] = React.useState("MI TIENDA");
@@ -141,6 +143,7 @@ export function PayModal({ onClose, onConfirm }: Props) {
             ? data.receiptDefaultDelivery
             : "printed",
           printerEnabled: data.printerEnabled !== "false",
+          printerWidth: Number(data.printerWidth) || 58,
         });
         if (data.storeLogoUrl) setStoreLogoUrl(data.storeLogoUrl);
         if (data.storeName) setStoreName(data.storeName);
@@ -214,7 +217,7 @@ export function PayModal({ onClose, onConfirm }: Props) {
       if (!receiptConfig.printerEnabled) {
         addToast("La impresora está desactivada en configuración", "warning");
       } else {
-        printReceipt(sale);
+        printReceipt(sale, receiptConfig.printerWidth);
         addToast("Comprobante enviado a impresión", "success");
       }
       finishSale();
@@ -554,7 +557,7 @@ function downloadReceipt(sale: CompletedSale) {
   URL.revokeObjectURL(url);
 }
 
-function printReceipt(sale: CompletedSale) {
+function printReceipt(sale: CompletedSale, printerWidth: number) {
   const win = window.open("", "_blank", "width=420,height=640");
   if (!win) {
     window.print();
@@ -564,15 +567,16 @@ function printReceipt(sale: CompletedSale) {
   const logoEl = document.querySelector('[data-store-logo]') as HTMLImageElement | null;
   const logoUrl = logoEl?.src || "";
 
-  win.document.write(buildPrintableReceipt(sale, logoUrl));
+  win.document.write(buildPrintableReceipt(sale, logoUrl, printerWidth));
   win.document.close();
   win.focus();
   win.print();
 }
 
-function buildPrintableReceipt(sale: CompletedSale, logoUrl = ""): string {
+function buildPrintableReceipt(sale: CompletedSale, logoUrl = "", printerWidth = 58): string {
   const createdAt = sale.createdAt || sale.created_at || new Date().toISOString();
   const employee = sale.createdBy || sale.created_by || "Cajero";
+  const pageWidthMm = printerWidth >= 80 ? 80 : 58;
   const rows = sale.items
     .map((item) => {
       const qty = Number(item.qty);
@@ -597,7 +601,7 @@ function buildPrintableReceipt(sale: CompletedSale, logoUrl = ""): string {
         <meta charset="utf-8" />
         <title>${escapeHtml(sale.ticket)}</title>
         <style>
-          @page { size: 58mm auto; margin: 3mm; }
+          @page { size: ${pageWidthMm}mm auto; margin: 3mm; }
           body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #000; }
           h1 { font-size: 15px; text-align: center; margin: 0 0 8px; }
           .logo { display: block; margin: 0 auto 8px; max-width: 200px; max-height: 80px; }

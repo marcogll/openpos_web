@@ -8,7 +8,7 @@ export function Header() {
   const ticketNum = useCartStore((s) => s.ticketNum);
   const itemCount = useCartStore((s) => s.itemCount());
   const total = useCartStore((s) => s.total());
-  const theme = useUIStore((s) => s.theme);
+  const themeMode = useUIStore((s) => s.themeMode);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
 
   React.useEffect(() => {
@@ -66,11 +66,11 @@ export function Header() {
       <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
         <button
           onClick={toggleTheme}
-          aria-label={theme === "mocha" ? "Activar modo claro" : "Activar modo oscuro"}
+          aria-label={themeMode === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/50 text-text-dim transition-all hover:bg-accent hover:text-text-secondary cursor-pointer"
-          title={theme === "mocha" ? "Modo claro" : "Modo oscuro"}
+          title={themeMode === "dark" ? "Modo claro" : "Modo oscuro"}
         >
-          {theme === "mocha" ? (
+          {themeMode === "dark" ? (
             <Sun className="h-4 w-4" />
           ) : (
             <Moon className="h-4 w-4" />

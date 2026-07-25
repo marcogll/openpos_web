@@ -1,8 +1,11 @@
 import { Hono } from "hono";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { requireRole } from "../auth";
 import { CONFIG_KEYS, getRawDb, getConfig, setConfig } from "../webDb";
 
 export const configRoutes = new Hono();
+const execFileAsync = promisify(execFile);
 
 const ALLOWED_CONFIG_KEYS = new Set<string>([
   ...Object.values(CONFIG_KEYS),
@@ -54,6 +57,31 @@ configRoutes.get("/", async (c) => {
   }
 });
 
+configRoutes.get("/printers", async (c) => {
+  const type = c.req.query("type");
+
+  if (type !== "CUPS") {
+    return c.json({ printers: [] });
+  }
+
+  try {
+    const [{ stdout: devicesOutput }, defaultPrinter] = await Promise.all([
+      execFileAsync("lpstat", ["-v"], { timeout: 5000 }),
+      getDefaultCupsPrinter(),
+    ]);
+
+    const printers = parseCupsPrinters(devicesOutput).map((name) => ({
+      name,
+      isDefault: name === defaultPrinter,
+    }));
+
+    return c.json({ printers });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudieron listar impresoras CUPS";
+    return c.json({ printers: [], error: message }, 200);
+  }
+});
+
 configRoutes.get("/:key", async (c) => {
   try {
     const key = c.req.param("key");
@@ -64,6 +92,25 @@ configRoutes.get("/:key", async (c) => {
     return c.json({ error: "Failed to fetch config" }, 500);
   }
 });
+
+async function getDefaultCupsPrinter(): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync("lpstat", ["-d"], { timeout: 5000 });
+    const match = stdout.match(/:\s*(.+)\s*$/);
+    return match?.[1]?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+function parseCupsPrinters(output: string): string[] {
+  const printers = output
+    .split("\n")
+    .map((line) => line.match(/^device for\s+([^:]+):/i)?.[1]?.trim())
+    .filter((name): name is string => Boolean(name));
+
+  return [...new Set(printers)].sort((a, b) => a.localeCompare(b));
+}
 
 configRoutes.put("/", requireRole("admin"), async (c) => {
   try {

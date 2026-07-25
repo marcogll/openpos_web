@@ -92,16 +92,25 @@ function resolveCharacterSet(cs: string): string {
 
 // ── Interface type detection ──────────────────────────────────────────────────
 
-type InterfaceKind = "tcp" | "windows-printer" | "file";
+type InterfaceKind = "cups" | "tcp" | "windows-printer" | "file";
 
-function detectInterfaceKind(iface: string): InterfaceKind {
-  if (/^tcp:\/\//i.test(iface))     return "tcp";
-  if (/^printer:/i.test(iface))     return "windows-printer";
+function detectInterfaceKind(type: string, iface: string): InterfaceKind {
+  if (/^cups$/i.test(type)) return "cups";
+  if (/^tcp$/i.test(type) || /^tcp:\/\//i.test(iface)) return "tcp";
+  if (/^windows printer$/i.test(type) || (/^printer:/i.test(iface) && process.platform === "win32")) {
+    return "windows-printer";
+  }
   return "file";
 }
 
 function parsePrinterName(iface: string): string {
   return iface.replace(/^printer:/i, "").trim();
+}
+
+function normalizeThermalPrinterType(type: string): "epson" | "star" | "raw" {
+  const normalized = type.toLowerCase();
+  if (normalized === "star" || normalized === "raw") return normalized;
+  return "epson";
 }
 
 // ── Mock printer for ESC/POS buffer collection ────────────────────────────────
@@ -198,9 +207,11 @@ export class ThermalDriver {
     lines: string[],
     copies: number,
   ): Promise<PrintResult> {
-    const kind = detectInterfaceKind(this.cfg.printer.interface);
+    const kind = detectInterfaceKind(this.cfg.printer.type, this.cfg.printer.interface);
 
     switch (kind) {
+      case "cups":
+        return this.sendCups(lines, copies);
       case "windows-printer":
         return this.sendWindows(data, lines, copies);
       case "tcp":
@@ -223,7 +234,7 @@ export class ThermalDriver {
       const ThermalPrinter = mod.printer ?? mod.default ?? mod;
 
       const printer = new ThermalPrinter({
-        type:         (this.cfg.printer.type || "epson") as any,
+        type:         normalizeThermalPrinterType(this.cfg.printer.type) as any,
         interface:    this.cfg.printer.interface,
         characterSet: resolveCharacterSet(this.cfg.printer.characterSet) as any,
         timeout:      this.cfg.options.timeout,
@@ -268,6 +279,52 @@ export class ThermalDriver {
     }
   }
 
+  // ── Strategy: CUPS raw queue via lp ───────────────────────────────────────
+
+  private async sendCups(
+    lines: string[],
+    copies: number,
+  ): Promise<PrintResult> {
+    try {
+      const { execFile } = await import("child_process");
+      const fs           = await import("fs");
+      const os           = await import("os");
+      const path         = await import("path");
+
+      const printerName = parsePrinterName(this.cfg.printer.interface);
+      if (!printerName) {
+        return { success: false, error: "CUPS printer name is empty", lines };
+      }
+
+      const tmpBin = path.join(os.tmpdir(), `ticket_${Date.now()}.bin`);
+      fs.writeFileSync(tmpBin, await this.buildEscPosBuffer(lines, copies));
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const child = execFile(
+            "lp",
+            ["-d", printerName, "-o", "raw", tmpBin],
+            { timeout: this.cfg.options.timeout },
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            },
+          );
+          child.stdin?.end();
+        });
+        fs.unlinkSync(tmpBin);
+        return { success: true, lines, copies };
+      } catch (err) {
+        try { fs.unlinkSync(tmpBin); } catch { /* ignore */ }
+        const error = err instanceof Error ? err.message : "CUPS print error";
+        return { success: false, error, lines };
+      }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "CUPS print error";
+      return { success: false, error, lines };
+    }
+  }
+
   // ── Strategy: Windows spooler via winspool.drv P/Invoke ─────────────────────
 
   private async sendWindows(
@@ -280,59 +337,11 @@ export class ThermalDriver {
       const fs           = await import("fs");
       const os           = await import("os");
       const path         = await import("path");
-      const { resolve }  = await import("path");
 
       const printerName = parsePrinterName(this.cfg.printer.interface);
 
-      // Build ESC/POS buffer - usar las líneas generadas por TicketBuilder
-      const buf = new EscPosBuffer();
-      for (let copy = 0; copy < copies; copy++) {
-        buf.raw(INIT);
-        
-        // Escribir las líneas generadas por TicketBuilder (procesar markers)
-        for (const line of lines) {
-          if (line.startsWith("{IMG:") && line.endsWith("}")) {
-            const imgPath = line.slice(5, -1);
-            try {
-              const bannerPath = resolve(process.cwd(), "assets", imgPath);
-              const imageBuffer = await pngToEscPosBitmap(bannerPath);
-              if (imageBuffer) {
-                buf.raw(imageBuffer);
-                buf.println("");
-              }
-            } catch {
-              buf.println("[Imagen no encontrada]");
-            }
-          } else if (line.startsWith("{QR:") && line.endsWith("}")) {
-            const qrData = line.slice(4, -1);
-            buf.raw(alignCmd("center"));
-            buf.raw(qrCommand(qrData, this.cfg.template.footer.qrcode.size));
-            buf.println("");
-          } else if (line.startsWith("{SATQR:") && line.endsWith("}")) {
-            const qrData = line.slice(7, -1);
-            buf.raw(alignCmd("center"));
-            buf.raw(qrCommand(qrData, 6));
-            buf.println("");
-            buf.println(pad("Verificar en SAT", this.cfg.template.width, "center"));
-            buf.println("");
-          } else if (line.startsWith("{BIG:") && line.endsWith("}")) {
-            const text = line.slice(5, -1);
-            buf.raw(alignCmd("right"));
-            buf.raw(DOUBLE_ON);
-            buf.println(text);
-            buf.raw(DOUBLE_OFF);
-          } else {
-            buf.println(line);
-          }
-        }
-        
-        if (this.cfg.template.actions.cut)        buf.raw(CUT);
-        if (this.cfg.template.actions.cashDrawer) buf.raw(CASH_DRAWER);
-        if (this.cfg.template.actions.beep)       buf.raw(BEEP);
-      }
-
       const tmpBin = path.join(os.tmpdir(), `ticket_${Date.now()}.bin`);
-      fs.writeFileSync(tmpBin, buf.toBuffer());
+      fs.writeFileSync(tmpBin, await this.buildEscPosBuffer(lines, copies));
 
       // Write PowerShell script to a temp file to avoid quoting issues
       const psScript = `
@@ -414,6 +423,57 @@ Write-Host "OK:$written"
   }
 
   // ── ESC/POS construction ──────────────────────────────────────────────────
+
+  private async buildEscPosBuffer(lines: string[], copies: number): Promise<Buffer> {
+    const { resolve } = await import("path");
+    const buf = new EscPosBuffer();
+
+    for (let copy = 0; copy < copies; copy++) {
+      buf.raw(INIT);
+
+      for (const line of lines) {
+        if (line.startsWith("{IMG:") && line.endsWith("}")) {
+          const imgPath = line.slice(5, -1);
+          try {
+            const bannerPath = resolve(process.cwd(), "assets", imgPath);
+            const imageBuffer = await pngToEscPosBitmap(bannerPath);
+            if (imageBuffer) {
+              buf.raw(imageBuffer);
+              buf.println("");
+            }
+          } catch {
+            buf.println("[Imagen no encontrada]");
+          }
+        } else if (line.startsWith("{QR:") && line.endsWith("}")) {
+          const qrData = line.slice(4, -1);
+          buf.raw(alignCmd("center"));
+          buf.raw(qrCommand(qrData, this.cfg.template.footer.qrcode.size));
+          buf.println("");
+        } else if (line.startsWith("{SATQR:") && line.endsWith("}")) {
+          const qrData = line.slice(7, -1);
+          buf.raw(alignCmd("center"));
+          buf.raw(qrCommand(qrData, 6));
+          buf.println("");
+          buf.println(pad("Verificar en SAT", this.cfg.template.width, "center"));
+          buf.println("");
+        } else if (line.startsWith("{BIG:") && line.endsWith("}")) {
+          const text = line.slice(5, -1);
+          buf.raw(alignCmd("right"));
+          buf.raw(DOUBLE_ON);
+          buf.println(text);
+          buf.raw(DOUBLE_OFF);
+        } else {
+          buf.println(line);
+        }
+      }
+
+      if (this.cfg.template.actions.cut)        buf.raw(CUT);
+      if (this.cfg.template.actions.cashDrawer) buf.raw(CASH_DRAWER);
+      if (this.cfg.template.actions.beep)       buf.raw(BEEP);
+    }
+
+    return buf.toBuffer();
+  }
 
   private async writeEscPos(printer: EscPosBuffer | any, data: TicketData): Promise<void> {
     const tpl = this.cfg.template;

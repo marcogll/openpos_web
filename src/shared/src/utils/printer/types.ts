@@ -79,7 +79,7 @@ export type MessageSection = {
 
 export interface PrinterConfig {
   printer: {
-    type: "epson" | "star" | "raw";
+    type: "epson" | "star" | "raw" | "CUPS" | "Windows Printer" | "TCP" | "USB" | "Archivo";
     interface: string;
     width: number;
     characterSet: string;

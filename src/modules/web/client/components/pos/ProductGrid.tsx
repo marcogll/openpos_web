@@ -70,11 +70,11 @@ export function ProductGrid({ search }: Props) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
         {Array.from({ length: 12 }).map((_, i) => (
           <div
             key={i}
-            className="h-40 rounded-lg border border-border/70 bg-card shadow-card animate-pulse-slow"
+            className="h-44 rounded-lg border border-border/70 bg-card shadow-card animate-pulse-slow"
           />
         ))}
       </div>
@@ -93,9 +93,9 @@ export function ProductGrid({ search }: Props) {
   }
 
   return (
-    <div className="flex h-full flex-col rounded-lg border app-chrome-line bg-card/55 p-3 shadow-card backdrop-blur">
+    <div className="flex h-full flex-col rounded-lg border app-chrome-line bg-card/70 p-3 shadow-card backdrop-blur">
       <div className="mb-3 flex min-h-8 items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">
+        <h2 className="text-base font-bold text-foreground">
           Productos
           <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
             {total}
@@ -103,7 +103,7 @@ export function ProductGrid({ search }: Props) {
         </h2>
       </div>
 
-      <div className="grid flex-1 auto-rows-fr grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3 overflow-auto pb-4">
+      <div className="grid flex-1 auto-rows-fr grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 overflow-auto pb-4 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] 2xl:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))]">
         {products.map((p) => (
           <ProductCard key={p.sku} product={p} onAdd={handleAdd} />
         ))}

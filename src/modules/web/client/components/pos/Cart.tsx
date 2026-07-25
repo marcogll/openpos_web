@@ -19,23 +19,28 @@ export function Cart({ onPay }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border app-chrome-line bg-card shadow-panel">
       {/* Header */}
-      <div className="flex min-h-14 items-center justify-between border-b app-chrome-line bg-muted/40 px-4 py-3">
+      <div className="flex min-h-16 items-center justify-between border-b app-chrome-line bg-muted/40 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-            <ShoppingBag className="h-4 w-4" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <ShoppingBag className="h-5 w-5" />
           </div>
-          <span className="data-value text-sm font-semibold text-text-primary">
-            Ticket #{String(ticketNum).padStart(4, "0")}
-          </span>
+          <div>
+            <span className="data-value text-sm font-bold text-text-primary">
+              Ticket #{String(ticketNum).padStart(4, "0")}
+            </span>
+            <div className="text-xs text-text-dim">
+              {itemCount} {itemCount === 1 ? "artículo" : "artículos"}
+            </div>
+          </div>
         </div>
         {items.length > 0 && (
           <button
             onClick={clear}
             aria-label="Limpiar carrito"
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-red/10 hover:text-red cursor-pointer"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red/10 hover:text-red cursor-pointer"
             title="Limpiar carrito"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-5 w-5" />
           </button>
         )}
       </div>
@@ -66,16 +71,16 @@ export function Cart({ onPay }: Props) {
           <span className="data-value text-text-secondary">${tax.toFixed(2)}</span>
         </div>
         <div className="h-px bg-border" />
-        <div className="flex justify-between">
-          <span className="text-sm font-semibold text-text-primary">Total</span>
-          <span className="data-value text-xl font-bold text-green">${total.toFixed(2)}</span>
+        <div className="flex items-end justify-between">
+          <span className="text-base font-bold text-text-primary">Total</span>
+          <span className="data-value text-2xl font-extrabold text-green">${total.toFixed(2)}</span>
         </div>
 
         {/* Pay button */}
         <button
           onClick={onPay}
           disabled={items.length === 0}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-green text-sm font-bold text-bg shadow-card transition-all hover:bg-green-bright disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+          className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-green text-base font-extrabold text-bg shadow-card transition-all hover:bg-green-bright disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
         >
           <CreditCard className="h-5 w-5" />
           Cobrar ({itemCount} {itemCount === 1 ? "item" : "items"})

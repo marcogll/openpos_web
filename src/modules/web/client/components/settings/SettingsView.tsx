@@ -131,20 +131,20 @@ export function SettingsView() {
   };
 
   return (
-    <div className="flex h-full gap-4 animate-fade-in">
+    <div className="flex h-full flex-col gap-4 animate-fade-in md:flex-row">
       {/* Sidebar */}
-      <div className="w-56 flex-shrink-0 bg-bg-panel rounded-xl border border-bg-active overflow-hidden">
+      <div className="flex-shrink-0 overflow-hidden rounded-xl border border-bg-active bg-bg-panel md:w-56">
         <div className="px-4 py-3 border-b border-bg-active">
           <h2 className="text-sm font-bold text-text-primary tracking-wide">
             Configuración
           </h2>
         </div>
-        <nav className="p-2 space-y-0.5">
+        <nav className="flex gap-1 overflow-x-auto p-2 md:block md:space-y-0.5" aria-label="Secciones de configuración">
           {MENU_ITEMS.map((item) => (
             <button
               key={item.id}
               onClick={() => handleSectionChange(item.id)}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex min-h-11 flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all md:w-full md:gap-3 ${
                 active === item.id
                   ? "bg-mauve/10 text-mauve"
                   : "text-text-muted hover:text-text-secondary hover:bg-bg-active"

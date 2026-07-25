@@ -29,10 +29,10 @@ export function ProductCard({ product, onAdd }: Props) {
       onClick={() => onAdd(product)}
       disabled={outOfStock || inactive}
       aria-label={`Agregar ${product.name}, precio ${product.price.toFixed(2)}`}
-      className={`group relative flex min-h-40 flex-col rounded-lg border p-3 text-left transition-all duration-200 ${
+      className={`group relative flex min-h-44 flex-col rounded-lg border p-3 text-left transition-all duration-200 ${
         outOfStock || inactive
           ? "bg-card/50 border-border/60 opacity-55 cursor-not-allowed"
-          : "bg-card border-border/70 shadow-card hover:border-primary/45 hover:bg-primary/5 hover:-translate-y-0.5 cursor-pointer active:scale-[0.98]"
+          : "bg-card border-border/70 shadow-card hover:border-primary/45 hover:bg-primary/5 cursor-pointer active:bg-primary/10"
       }`}
     >
       {/* Category badge */}
@@ -50,22 +50,22 @@ export function ProductCard({ product, onAdd }: Props) {
       </div>
 
       {/* Name */}
-      <h3 className="line-clamp-3 flex-1 text-sm font-medium leading-tight text-text-primary">
+      <h3 className="line-clamp-3 flex-1 text-base font-semibold leading-snug text-text-primary">
         {product.name}
       </h3>
 
       {/* Price + Stock */}
       <div className="mt-3 flex items-end justify-between gap-2">
         <div className="min-w-0">
-          <div className="data-value text-lg font-bold text-green">
+          <div className="data-value text-xl font-bold text-green">
             ${product.price.toFixed(2)}
           </div>
-          <div className="truncate text-[10px] text-text-dim">
+          <div className="truncate text-xs text-text-dim">
             {isService ? "Servicio" : `Stock: ${product.stock} ${product.unitType}`}
           </div>
         </div>
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground opacity-100 shadow-card transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-          <Plus className="h-4 w-4" />
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card">
+          <Plus className="h-5 w-5" />
         </div>
       </div>
     </button>

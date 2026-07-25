@@ -1,5 +1,5 @@
 import React from "react";
-import { Printer, Save } from "lucide-react";
+import { Printer, RefreshCw, Save } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 
 type PrinterConfigData = {
@@ -11,6 +11,11 @@ type PrinterConfigData = {
   printerCharacterSet: string;
   receiptPromptOnSale: boolean;
   receiptDefaultDelivery: "ticket" | "digital" | "printed";
+};
+
+type SystemPrinter = {
+  name: string;
+  isDefault: boolean;
 };
 
 const PRINTER_TYPES = [
@@ -40,6 +45,9 @@ export function PrinterConfig() {
   const [config, setConfig] = React.useState<PrinterConfigData>(DEFAULT_CONFIG);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [cupsPrinters, setCupsPrinters] = React.useState<SystemPrinter[]>([]);
+  const [loadingPrinters, setLoadingPrinters] = React.useState(false);
+  const [printerLoadError, setPrinterLoadError] = React.useState("");
 
   React.useEffect(() => {
     fetch("/api/config")
@@ -64,6 +72,50 @@ export function PrinterConfig() {
 
   const set = <K extends keyof PrinterConfigData>(key: K, value: PrinterConfigData[K]) =>
     setConfig((current) => ({ ...current, [key]: value }));
+
+  const loadCupsPrinters = React.useCallback(async () => {
+    setLoadingPrinters(true);
+    setPrinterLoadError("");
+    try {
+      const res = await fetch("/api/config/printers?type=CUPS");
+      const data = (await res.json()) as { printers?: SystemPrinter[]; error?: string };
+      const printers = data.printers || [];
+      setCupsPrinters(printers);
+      if (data.error) setPrinterLoadError("No se pudieron leer impresoras CUPS");
+      if (printers.length > 0) {
+        setConfig((current) => {
+          const currentName = normalizePrinterName(current.printerInterface);
+          if (printers.some((printer) => printer.name === currentName)) return current;
+          return {
+            ...current,
+            printerInterface: printers.find((printer) => printer.isDefault)?.name || printers[0].name,
+          };
+        });
+      }
+    } catch {
+      setCupsPrinters([]);
+      setPrinterLoadError("No se pudieron leer impresoras CUPS");
+    } finally {
+      setLoadingPrinters(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (config.printerType === "CUPS") {
+      void loadCupsPrinters();
+    }
+  }, [config.printerType, loadCupsPrinters]);
+
+  const handlePrinterTypeChange = (printerType: string) => {
+    const defaults: Record<string, Pick<PrinterConfigData, "printerInterface" | "printerWidth">> = {
+      CUPS: { printerInterface: normalizePrinterName(config.printerInterface) || "TICKETS", printerWidth: 58 },
+      "Windows Printer": { printerInterface: "printer:POS-80", printerWidth: 48 },
+      TCP: { printerInterface: "tcp://192.168.1.100:9100", printerWidth: 48 },
+      USB: { printerInterface: "USB", printerWidth: 48 },
+      Archivo: { printerInterface: "/dev/usb/lp0", printerWidth: 48 },
+    };
+    setConfig((current) => ({ ...current, printerType, ...(defaults[printerType] || {}) }));
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +179,7 @@ export function PrinterConfig() {
           <Field label="Tipo">
             <select
               value={config.printerType}
-              onChange={(e) => set("printerType", e.target.value)}
+              onChange={(e) => handlePrinterTypeChange(e.target.value)}
               className="w-full h-10 px-3 rounded-lg bg-bg border border-bg-active text-sm text-text-secondary focus:border-mauve/50 focus:ring-1 focus:ring-mauve/20 transition-all"
             >
               {PRINTER_TYPES.map((type) => (
@@ -139,13 +191,45 @@ export function PrinterConfig() {
           </Field>
 
           <Field label="Interfaz">
-            <input
-              type="text"
-              value={config.printerInterface}
-              onChange={(e) => set("printerInterface", e.target.value)}
-              placeholder="printer:POS-80"
-              className="w-full h-10 px-3 rounded-lg bg-bg border border-bg-active text-sm text-text-secondary placeholder:text-text-dim focus:border-mauve/50 focus:ring-1 focus:ring-mauve/20 transition-all font-mono"
-            />
+            {config.printerType === "CUPS" && cupsPrinters.length > 0 ? (
+              <div className="flex gap-2">
+                <select
+                  value={normalizePrinterName(config.printerInterface)}
+                  onChange={(e) => set("printerInterface", e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg bg-bg border border-bg-active text-sm text-text-secondary focus:border-mauve/50 focus:ring-1 focus:ring-mauve/20 transition-all"
+                >
+                  {cupsPrinters.map((printer) => (
+                    <option key={printer.name} value={printer.name}>
+                      {printer.name}{printer.isDefault ? " (predeterminada)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={loadCupsPrinters}
+                  disabled={loadingPrinters}
+                  className="h-10 w-10 shrink-0 rounded-lg border border-bg-active bg-bg text-text-secondary hover:text-text-primary disabled:opacity-40"
+                  title="Actualizar impresoras"
+                >
+                  <RefreshCw className={`mx-auto h-4 w-4 ${loadingPrinters ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={config.printerInterface}
+                onChange={(e) => set("printerInterface", e.target.value)}
+                placeholder={config.printerType === "CUPS" ? "TICKETS" : "printer:POS-80"}
+                className="w-full h-10 px-3 rounded-lg bg-bg border border-bg-active text-sm text-text-secondary placeholder:text-text-dim focus:border-mauve/50 focus:ring-1 focus:ring-mauve/20 transition-all font-mono"
+              />
+            )}
+            {config.printerType === "CUPS" && (
+              <div className="mt-1.5 text-xs text-text-dim">
+                {loadingPrinters && "Buscando impresoras CUPS..."}
+                {!loadingPrinters && printerLoadError}
+                {!loadingPrinters && !printerLoadError && cupsPrinters.length === 0 && "Escribe el nombre de la cola CUPS."}
+              </div>
+            )}
           </Field>
 
           <Field label="Ancho">
@@ -272,4 +356,8 @@ function Toggle({
 
 function isDelivery(value: unknown): value is PrinterConfigData["receiptDefaultDelivery"] {
   return value === "ticket" || value === "digital" || value === "printed";
+}
+
+function normalizePrinterName(value: string): string {
+  return value.replace(/^printer:/i, "").trim();
 }
