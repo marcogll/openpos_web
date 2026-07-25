@@ -148,8 +148,7 @@
 body {
   font-family: var(--font-sans);
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--color-mauve) 16%, transparent), transparent 32rem),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--color-teal) 10%, transparent), transparent 30rem),
+    linear-gradient(135deg, color-mix(in srgb, var(--color-bg-section) 34%, transparent), transparent 34rem),
     var(--color-bg);
   color: var(--color-text-primary);
   margin: 0;
@@ -198,8 +197,21 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-ring) 60%, transparent);
+  outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-chrome-line {
+  border-color: color-mix(in srgb, var(--color-border) 76%, transparent);
+}
+
+.data-value {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Animations ───────────────────────────────────────────────────────────── */

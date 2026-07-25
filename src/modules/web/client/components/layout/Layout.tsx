@@ -11,12 +11,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
       <div
-        className={`flex flex-col flex-1 min-w-0 transition-all duration-200 ${
-          collapsed ? "ml-16" : "ml-56"
+        className={`flex min-w-0 flex-1 flex-col transition-all duration-200 pb-16 md:pb-0 ${
+          collapsed ? "md:ml-16" : "md:ml-56"
         }`}
       >
         <Header />
-        <main className="flex-1 overflow-auto p-4 lg:p-5">{children}</main>
+        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-5">{children}</main>
       </div>
       <ToastContainer />
     </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Package, AlertTriangle } from "lucide-react";
+import { Package } from "lucide-react";
 import { ProductCard } from "./ProductCard";
 import { useCartStore, type Product } from "../../stores/cartStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -70,11 +70,11 @@ export function ProductGrid({ search }: Props) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3">
         {Array.from({ length: 12 }).map((_, i) => (
           <div
             key={i}
-            className="h-36 rounded-xl bg-card border border-border/70 shadow-card animate-pulse-slow"
+            className="h-40 rounded-lg border border-border/70 bg-card shadow-card animate-pulse-slow"
           />
         ))}
       </div>
@@ -83,9 +83,9 @@ export function ProductGrid({ search }: Props) {
 
   if (products.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-text-muted">
-        <Package className="w-12 h-12 mb-3 text-text-dim" />
-        <p className="text-sm">
+      <div className="flex h-64 flex-col items-center justify-center rounded-lg border app-chrome-line bg-card/55 text-text-muted">
+        <Package className="mb-3 h-12 w-12 text-text-dim" />
+        <p className="text-sm font-medium">
           {search ? "Sin resultados" : "No hay productos"}
         </p>
       </div>
@@ -93,8 +93,8 @@ export function ProductGrid({ search }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full rounded-xl border border-border/70 bg-card/55 p-3 shadow-card backdrop-blur">
-      <div className="flex items-center justify-between mb-3">
+    <div className="flex h-full flex-col rounded-lg border app-chrome-line bg-card/55 p-3 shadow-card backdrop-blur">
+      <div className="mb-3 flex min-h-8 items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">
           Productos
           <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -103,7 +103,7 @@ export function ProductGrid({ search }: Props) {
         </h2>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-auto flex-1 pb-4">
+      <div className="grid flex-1 auto-rows-fr grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-3 overflow-auto pb-4">
         {products.map((p) => (
           <ProductCard key={p.sku} product={p} onAdd={handleAdd} />
         ))}
@@ -112,7 +112,7 @@ export function ProductGrid({ search }: Props) {
       {products.length < total && (
         <button
           onClick={handleLoadMore}
-          className="w-full py-2 text-sm text-muted-foreground hover:text-foreground border-t border-border/70 hover:bg-accent transition-all cursor-pointer"
+          className="min-h-11 w-full border-t border-border/70 py-2 text-sm text-muted-foreground transition-all hover:bg-accent hover:text-foreground cursor-pointer"
         >
           Cargar más ({products.length}/{total})
         </button>

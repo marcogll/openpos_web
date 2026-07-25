@@ -28,43 +28,44 @@ export function ProductCard({ product, onAdd }: Props) {
     <button
       onClick={() => onAdd(product)}
       disabled={outOfStock || inactive}
-      className={`relative flex min-h-36 flex-col p-3 rounded-xl border text-left transition-all duration-200 group ${
+      aria-label={`Agregar ${product.name}, precio ${product.price.toFixed(2)}`}
+      className={`group relative flex min-h-40 flex-col rounded-lg border p-3 text-left transition-all duration-200 ${
         outOfStock || inactive
-          ? "bg-card/50 border-border/60 opacity-50 cursor-not-allowed"
-           : "bg-card border-border/70 shadow-card hover:border-primary/40 hover:bg-primary/5 hover:-translate-y-0.5 cursor-pointer active:scale-[0.98]"
+          ? "bg-card/50 border-border/60 opacity-55 cursor-not-allowed"
+          : "bg-card border-border/70 shadow-card hover:border-primary/45 hover:bg-primary/5 hover:-translate-y-0.5 cursor-pointer active:scale-[0.98]"
       }`}
     >
       {/* Category badge */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex min-h-6 items-center justify-between gap-2">
         <span
-          className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-current/10 ${
+          className={`max-w-[7rem] truncate rounded-full border border-current/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
             CATEGORY_COLORS[product.category] || "bg-muted text-muted-foreground"
           }`}
         >
-          {product.category}
+          {product.category || "GEN"}
         </span>
         {lowStock && !outOfStock && (
-          <AlertTriangle className="w-3.5 h-3.5 text-amber" />
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-amber" aria-label="Stock bajo" />
         )}
       </div>
 
       {/* Name */}
-      <h3 className="text-sm font-medium text-text-primary leading-tight line-clamp-2 flex-1">
+      <h3 className="line-clamp-3 flex-1 text-sm font-medium leading-tight text-text-primary">
         {product.name}
       </h3>
 
       {/* Price + Stock */}
-      <div className="mt-2 flex items-end justify-between">
-        <div>
-          <div className="text-lg font-bold text-green tabular-nums">
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <div className="min-w-0">
+          <div className="data-value text-lg font-bold text-green">
             ${product.price.toFixed(2)}
           </div>
-          <div className="text-[10px] text-text-dim">
+          <div className="truncate text-[10px] text-text-dim">
             {isService ? "Servicio" : `Stock: ${product.stock} ${product.unitType}`}
           </div>
         </div>
-        <div className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-card">
-          <Plus className="w-4 h-4" />
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground opacity-100 shadow-card transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+          <Plus className="h-4 w-4" />
         </div>
       </div>
     </button>

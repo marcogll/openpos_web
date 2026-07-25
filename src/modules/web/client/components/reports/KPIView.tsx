@@ -29,7 +29,20 @@ import {
 } from "recharts";
 import { useAuthStore } from "../../stores/authStore";
 
-const COLORS = ["#cba6f7", "#89b4fa", "#a6e3a1", "#f9e2af", "#fab387", "#f38ba8", "#94e2d5", "#f5c2e7"];
+const COLORS = [
+  "var(--color-primary)",
+  "var(--color-blue)",
+  "var(--color-green)",
+  "var(--color-amber)",
+  "var(--color-orange)",
+  "var(--color-red)",
+  "var(--color-cyan)",
+  "var(--color-pink)",
+];
+const CHART_GRID = "color-mix(in srgb, var(--color-border) 55%, transparent)";
+const CHART_TICK = "var(--color-text-muted)";
+const CHART_SURFACE = "var(--color-bg-panel)";
+const CHART_BORDER = "var(--color-border)";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("es-MX", {
@@ -64,11 +77,11 @@ function StatCard({
   tone?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-card p-4 min-w-0">
+    <div className="min-w-0 rounded-lg border app-chrome-line bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-wide text-text-dim truncate">{label}</div>
-          <div className="mt-1 text-2xl font-bold text-text-primary leading-tight truncate">{value}</div>
+          <div className="data-value mt-1 truncate text-2xl font-bold leading-tight text-text-primary">{value}</div>
           {sub && <div className="mt-1 text-xs text-text-muted truncate">{sub}</div>}
         </div>
         <div className={`rounded-lg border p-2.5 ${tone}`}>
@@ -81,8 +94,8 @@ function StatCard({
 
 function Panel({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border/70 bg-card overflow-hidden min-w-0">
-      <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
+    <section className="min-w-0 overflow-hidden rounded-lg border app-chrome-line bg-card">
+      <div className="flex min-h-12 items-center gap-2 border-b app-chrome-line px-4 py-3">
         <Icon className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
       </div>
@@ -111,7 +124,7 @@ function RankingBars({
           <div key={`${row.sku || row[labelKey]}-${index}`} className="space-y-1">
             <div className="flex items-center justify-between gap-3 text-xs">
               <span className="truncate text-text-secondary">{row[labelKey]}</span>
-              <span className="font-semibold text-text-primary">{format(value)}</span>
+              <span className="data-value font-semibold text-text-primary">{format(value)}</span>
             </div>
             <div className="h-2 rounded-full bg-bg-section overflow-hidden">
               <div
@@ -235,7 +248,7 @@ export default function KPIView() {
   }));
 
   return (
-    <div className="h-full overflow-y-auto rounded-xl bg-bg-panel p-4">
+      <div className="h-full overflow-y-auto rounded-lg bg-bg-panel p-3 sm:p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Gauge className="h-5 w-5 text-primary" />
@@ -261,29 +274,29 @@ export default function KPIView() {
               <AreaChart data={salesByDay}>
                 <defs>
                   <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a6e3a1" stopOpacity={0.55} />
-                    <stop offset="95%" stopColor="#a6e3a1" stopOpacity={0.02} />
+                    <stop offset="5%" stopColor="var(--color-green)" stopOpacity={0.55} />
+                    <stop offset="95%" stopColor="var(--color-green)" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#45475a55" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: "#a6adc8", fontSize: 11 }} />
-                <YAxis tick={{ fill: "#a6adc8", fontSize: 11 }} tickFormatter={numberCompact} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ background: "#242438", border: "1px solid #45475a" }} />
-                <Area type="monotone" dataKey="totalSales" stroke="#a6e3a1" fill="url(#salesFill)" strokeWidth={2} />
+                <CartesianGrid stroke={CHART_GRID} vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: CHART_TICK, fontSize: 11 }} />
+                <YAxis tick={{ fill: CHART_TICK, fontSize: 11 }} tickFormatter={numberCompact} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ background: CHART_SURFACE, border: `1px solid ${CHART_BORDER}` }} />
+                <Area type="monotone" dataKey="totalSales" stroke="var(--color-green)" fill="url(#salesFill)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Panel>
 
-        <Panel title="Inventario at a glance" icon={Package}>
-          <div className="grid grid-cols-[11rem_1fr] gap-4">
+        <Panel title="Inventario general" icon={Package}>
+          <div className="grid gap-4 sm:grid-cols-[11rem_1fr]">
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={stockHealth} innerRadius={48} outerRadius={78} paddingAngle={2} dataKey="value">
                     {stockHealth.map((_, index) => <Cell key={index} fill={COLORS[index]} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ background: "#242438", border: "1px solid #45475a" }} />
+                  <Tooltip contentStyle={{ background: CHART_SURFACE, border: `1px solid ${CHART_BORDER}` }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -294,14 +307,14 @@ export default function KPIView() {
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index] }} />
                     {item.name}
                   </span>
-                  <span className="font-semibold text-text-primary">{item.value}</span>
+                  <span className="data-value font-semibold text-text-primary">{item.value}</span>
                 </div>
               ))}
             </div>
           </div>
         </Panel>
 
-        <Panel title="Top sellers" icon={ShoppingBag}>
+        <Panel title="Más vendidos" icon={ShoppingBag}>
           <RankingBars rows={data.topProducts || []} valueKey="revenue" format={formatCurrency} />
         </Panel>
       </div>
@@ -311,10 +324,10 @@ export default function KPIView() {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.rotation || []} layout="vertical" margin={{ left: 16, right: 16 }}>
-                <CartesianGrid stroke="#45475a55" horizontal={false} />
-                <XAxis type="number" tick={{ fill: "#a6adc8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-                <YAxis type="category" dataKey="name" width={150} tick={{ fill: "#a6adc8", fontSize: 11 }} />
-                <Tooltip formatter={(value: number) => formatPercent(value)} contentStyle={{ background: "#242438", border: "1px solid #45475a" }} />
+                <CartesianGrid stroke={CHART_GRID} horizontal={false} />
+                <XAxis type="number" tick={{ fill: CHART_TICK, fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                <YAxis type="category" dataKey="name" width={150} tick={{ fill: CHART_TICK, fontSize: 11 }} />
+                <Tooltip formatter={(value: number) => formatPercent(value)} contentStyle={{ background: CHART_SURFACE, border: `1px solid ${CHART_BORDER}` }} />
                 <Bar dataKey="rotation" radius={[0, 6, 6, 0]}>
                   {(data.rotation || []).map((_: any, index: number) => <Cell key={index} fill={COLORS[(index + 2) % COLORS.length]} />)}
                 </Bar>
@@ -327,11 +340,11 @@ export default function KPIView() {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourly}>
-                <CartesianGrid stroke="#45475a55" vertical={false} />
-                <XAxis dataKey="hour" tick={{ fill: "#a6adc8", fontSize: 10 }} interval={2} />
-                <YAxis tick={{ fill: "#a6adc8", fontSize: 11 }} tickFormatter={numberCompact} />
-                <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ background: "#242438", border: "1px solid #45475a" }} />
-                <Bar dataKey="total" fill="#89b4fa" radius={[6, 6, 0, 0]} />
+                <CartesianGrid stroke={CHART_GRID} vertical={false} />
+                <XAxis dataKey="hour" tick={{ fill: CHART_TICK, fontSize: 10 }} interval={2} />
+                <YAxis tick={{ fill: CHART_TICK, fontSize: 11 }} tickFormatter={numberCompact} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ background: CHART_SURFACE, border: `1px solid ${CHART_BORDER}` }} />
+                <Bar dataKey="total" fill="var(--color-blue)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

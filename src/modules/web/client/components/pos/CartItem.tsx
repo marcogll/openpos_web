@@ -12,10 +12,10 @@ export function CartItem({ item }: Props) {
   const remove = useCartStore((s) => s.remove);
 
   return (
-    <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/60 border border-border/50 animate-fade-in">
+    <div className="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-border/50 bg-muted/60 p-2 animate-fade-in sm:flex sm:items-center sm:gap-3">
       {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-text-primary truncate">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-text-primary">
           {item.name}
         </div>
         <div className="text-xs text-text-dim">
@@ -24,37 +24,40 @@ export function CartItem({ item }: Props) {
       </div>
 
       {/* Qty controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         <button
           onClick={() => dec(item.sku)}
-          className="w-6 h-6 rounded-md bg-background/70 border border-border/70 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all cursor-pointer"
+          aria-label={`Quitar uno de ${item.name}`}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background/70 text-muted-foreground transition-all hover:bg-accent hover:text-foreground cursor-pointer"
         >
-          <Minus className="w-3 h-3" />
+          <Minus className="h-3.5 w-3.5" />
         </button>
-        <span className="w-10 text-center text-sm font-mono text-text-primary">
+        <span className="data-value w-10 text-center text-sm text-text-primary">
           {item.unitType === "pza"
             ? item.qty
             : item.qty.toFixed(1)}
         </span>
         <button
           onClick={() => inc(item.sku)}
-          className="w-6 h-6 rounded-md bg-background/70 border border-border/70 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all cursor-pointer"
+          aria-label={`Agregar uno de ${item.name}`}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background/70 text-muted-foreground transition-all hover:bg-accent hover:text-foreground cursor-pointer"
         >
-          <Plus className="w-3 h-3" />
+          <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Subtotal */}
-      <div className="text-sm font-semibold text-text-primary w-16 text-right">
+      <div className="data-value text-sm font-semibold text-text-primary sm:w-16 sm:text-right">
         ${(item.price * item.qty).toFixed(2)}
       </div>
 
       {/* Remove */}
       <button
         onClick={() => remove(item.sku)}
-        className="rounded-md p-1 text-muted-foreground hover:text-red hover:bg-red/10 transition-colors cursor-pointer"
+        aria-label={`Eliminar ${item.name}`}
+        className="justify-self-end rounded-md p-2 text-muted-foreground transition-colors hover:bg-red/10 hover:text-red cursor-pointer"
       >
-        <X className="w-3.5 h-3.5" />
+        <X className="h-3.5 w-3.5" />
       </button>
     </div>
   );

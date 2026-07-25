@@ -11,9 +11,9 @@ export function PosView() {
   const items = useCartStore((s) => s.items);
 
   return (
-    <div className="flex flex-col h-full gap-4 animate-fade-in">
-      <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-card backdrop-blur">
-        <div>
+    <div className="flex h-full flex-col gap-3 animate-fade-in lg:gap-4">
+      <div className="flex flex-col gap-3 rounded-lg border app-chrome-line bg-card/72 px-4 py-3 shadow-card backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-base font-semibold text-foreground">
             Punto de venta
           </h1>
@@ -21,7 +21,7 @@ export function PosView() {
             Productos, carrito y cobro en una vista compacta.
           </p>
         </div>
-        <div className="rounded-lg border border-border/70 bg-muted/70 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+        <div className="w-fit rounded-lg border border-border/70 bg-muted/70 px-3 py-1.5 text-xs font-medium text-muted-foreground">
           {items.length} {items.length === 1 ? "producto" : "productos"} en ticket
         </div>
       </div>
@@ -30,14 +30,14 @@ export function PosView() {
       <SearchBar value={search} onChange={setSearch} />
 
       {/* Main content: Products + Cart */}
-      <div className="flex gap-4 flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row xl:gap-4">
         {/* Products grid */}
-        <div className="flex-1 min-w-0">
+        <div className="min-h-0 min-w-0 flex-1">
           <ProductGrid search={search} />
         </div>
 
         {/* Cart sidebar */}
-        <div className="w-80 flex-shrink-0">
+        <div className="min-h-[22rem] flex-shrink-0 xl:w-80">
           <Cart onPay={() => setShowPay(true)} />
         </div>
       </div>

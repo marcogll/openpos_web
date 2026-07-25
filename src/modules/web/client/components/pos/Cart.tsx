@@ -17,37 +17,38 @@ export function Cart({ onPay }: Props) {
   const ticketNum = useCartStore((s) => s.ticketNum);
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-xl border border-border/70 overflow-hidden shadow-panel">
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border app-chrome-line bg-card shadow-panel">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border/70 flex items-center justify-between bg-muted/40">
+      <div className="flex min-h-14 items-center justify-between border-b app-chrome-line bg-muted/40 px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
-            <ShoppingBag className="w-4 h-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <ShoppingBag className="h-4 w-4" />
           </div>
-          <span className="text-sm font-semibold text-text-primary">
+          <span className="data-value text-sm font-semibold text-text-primary">
             Ticket #{String(ticketNum).padStart(4, "0")}
           </span>
         </div>
         {items.length > 0 && (
           <button
             onClick={clear}
-            className="rounded-md p-1.5 text-muted-foreground hover:text-red hover:bg-red/10 transition-colors cursor-pointer"
+            aria-label="Limpiar carrito"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-red/10 hover:text-red cursor-pointer"
             title="Limpiar carrito"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {/* Items */}
-      <div className="flex-1 overflow-auto p-3 space-y-2">
+      <div className="flex-1 space-y-2 overflow-auto p-3">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-3">
-              <ShoppingBag className="w-7 h-7 opacity-60" />
+          <div className="flex h-full min-h-40 flex-col items-center justify-center text-muted-foreground">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-muted">
+              <ShoppingBag className="h-7 w-7 opacity-60" />
             </div>
             <p className="text-sm font-medium text-foreground">Carrito vacío</p>
-            <p className="text-xs mt-1">Haz click en un producto</p>
+            <p className="mt-1 text-xs">Agrega productos desde el catálogo</p>
           </div>
         ) : (
           items.map((item) => <CartItem key={item.sku} item={item} />)
@@ -55,28 +56,28 @@ export function Cart({ onPay }: Props) {
       </div>
 
       {/* Totals */}
-      <div className="border-t border-border/70 bg-muted/35 p-4 space-y-2">
+      <div className="space-y-2 border-t app-chrome-line bg-muted/35 p-4">
         <div className="flex justify-between text-sm">
           <span className="text-text-muted">Subtotal</span>
-          <span className="text-text-secondary">${subtotal.toFixed(2)}</span>
+          <span className="data-value text-text-secondary">${subtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-text-muted">IVA (16%)</span>
-          <span className="text-text-secondary">${tax.toFixed(2)}</span>
+          <span className="data-value text-text-secondary">${tax.toFixed(2)}</span>
         </div>
         <div className="h-px bg-border" />
         <div className="flex justify-between">
           <span className="text-sm font-semibold text-text-primary">Total</span>
-          <span className="text-xl font-bold text-green tabular-nums">${total.toFixed(2)}</span>
+          <span className="data-value text-xl font-bold text-green">${total.toFixed(2)}</span>
         </div>
 
         {/* Pay button */}
         <button
           onClick={onPay}
           disabled={items.length === 0}
-          className="w-full h-12 mt-2 rounded-xl bg-green text-bg font-bold text-sm flex items-center justify-center gap-2 shadow-card hover:bg-green-bright transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-green text-sm font-bold text-bg shadow-card transition-all hover:bg-green-bright disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
         >
-          <CreditCard className="w-5 h-5" />
+          <CreditCard className="h-5 w-5" />
           Cobrar ({itemCount} {itemCount === 1 ? "item" : "items"})
         </button>
       </div>
