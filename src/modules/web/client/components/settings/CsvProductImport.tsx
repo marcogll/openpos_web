@@ -10,6 +10,7 @@ import {
   Download,
 } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
+import { getCategoryMeta } from "../pos/categoryMeta";
 
 type ParsedRow = {
   sku: string;
@@ -21,6 +22,8 @@ type ParsedRow = {
   unitType: string;
   minStock: number;
   barcode: string | null;
+  description: string | null;
+  imageUrl: string | null;
   _line: number;
   _error?: string;
 };
@@ -75,6 +78,8 @@ function toProductRow(row: Record<string, string>, lineNum: number): ParsedRow {
     unitType: row.unittype?.trim() || row.unit_type?.trim() || "pza",
     minStock: parseFloat(row.minstock) || parseFloat(row.min_stock) || 5,
     barcode: row.barcode?.trim() || null,
+    description: row.description?.trim() || null,
+    imageUrl: row.imageurl?.trim() || row.image_url?.trim() || null,
     _line: lineNum,
     _error: validateRow(row, lineNum) || undefined,
   };
@@ -99,11 +104,33 @@ export function CsvProductImport({ onClose }: { onClose: () => void }) {
 
   const downloadTemplate = () => {
     const csv = [
-      "sku,name,category,price,cost,stock,unitType,minStock,barcode",
-      "SERV-CORTE,Corte de cabello,SER,250,0,999,servicio,0,",
-      "SERV-BARBA,Barba,SER,150,0,999,servicio,0,",
-      "PROD-SHAMPOO,Shampoo 250ml,GEN,180,90,12,pieza,3,7501234567890",
-      "PROD-CREMA,Crema hidratante,GEN,250,120,8,pieza,2,",
+      "sku,name,category,price,cost,stock,unitType,minStock,barcode,description,imageUrl",
+      "SERV-CORTE,Corte de cabello,SER,250,0,999,servicio,0,,Corte de cabello profesional para caballero,",
+      "SERV-BARBA,Barba,SER,150,0,999,servicio,0,,Diseño y recorte de barba con navaja,",
+      "SERV-MANICURE,Manicure express,SER,180,0,999,servicio,0,,Manicure rápido con esmaltado regular,",
+      "SERV-PEDICURE,Pedicure spa,SER,350,0,999,servicio,0,,Pedicure completo con exfoliación y masaje,",
+      "COS-SHAMPOO,Shampoo hidratante 250ml,COS,180,90,12,pieza,3,,Shampoo para cabello seco con keratina,",
+      "COS-CREMA,Crema facial antiedad,COS,450,220,8,pieza,2,,Crema con ácido hialurónico y vitamina C,",
+      "COS-ESMALTE,Esmalte gel largo duración,COS,85,35,20,pieza,5,,Esmalte en gel color duradero 15ml,",
+      "COS-ACETONA,Acetona sin olor 250ml,COS,65,30,15,pieza,5,,Removedor de esmalte profesional,",
+      "BEB-AGUA,Agua natural 500ml,BEB,18,9,48,pieza,10,,Agua purificada botella 500ml,",
+      "BEB-CAFE,Café americano,BEB,35,10,999,servicio,0,,Café americano recién hecho,",
+      "BEB-REFRESCO,Refresco lata 355ml,BEB,25,12,36,pieza,10,,Refresco de cola lata 355ml,",
+      "BOT-CHIPS,Papas fritas Bolsa,BOT,45,22,24,pieza,8,,Papas fritas sabor original 45g,",
+      "BOT-CHOCOLATE,Barra de chocolate,BOT,38,18,20,pieza,6,,Chocolate con leche 100g,",
+      "GEN-PEINE,Peine profesional,GEN,45,18,10,pieza,3,,Peine de carbón resistente a calor,",
+      "GEN-GAFETE,Gafete plástico,GEN,25,10,50,pieza,10,,Gafete con porta tarjetas transparente,",
+      "HER-CORTADORA,Máquina cortadora 5 estrellas,HER,1200,600,3,pieza,1,,Cortadora de pelo profesional 5W,",
+      "HER-TIJERAS,Tijeras de acero inoxidable,HER,450,220,5,pieza,1,,Tijeras de peluquería 6 pulgadas,",
+      "HER-CEPILLO,Cepillo redondo cerámica,HER,280,140,4,pieza,1,,Cepillo de secado cerámica 35mm,",
+      "KIT-BASICO,Kit cortes básicos,KIT,850,450,2,pieza,1,,Incluye: tijeras, peine, clips y navaja,",
+      "KIT-MANICURE,Kit manicure completo,KIT,650,320,2,pieza,1,,Incluye: limas, cutícula, esmaltes y bolsa,",
+      "MAT-CURSO,Curso de barbería nivel 1,MAT,2500,0,999,servicio,0,,Curso presencial 40 horas con certificado,",
+      "MAT-VIDEO,Video tutorial técnicas avanzadas,MAT,150,0,999,servicio,0,,Acceso online por 6 meses a 50+ videos,",
+      "UNA-GEL,Gel semipermanente 10ml,UNA,120,55,15,pieza,5,,Gel soak off color intenso 10ml,",
+      "UNA-BASE,Base coat protectora 15ml,UNA,95,42,12,pieza,4,,Base previa al esmalte con fortalecedor,",
+      "UNG-LOCION,Loción corporal hidratante,UNG,220,110,8,pieza,3,,Loción con aloe vera y vitamina E 400ml,",
+      "UNG-BALSAMO,Bálsamo labial reparador,UNG,85,40,15,pieza,5,,Bálsamo con manteca de karité y miel,",
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -147,6 +174,8 @@ export function CsvProductImport({ onClose }: { onClose: () => void }) {
             unitType: r.unitType,
             minStock: r.minStock,
             barcode: r.barcode,
+            description: r.description,
+            imageUrl: r.imageUrl,
           })),
           updateExisting,
         }),
@@ -198,7 +227,7 @@ export function CsvProductImport({ onClose }: { onClose: () => void }) {
                   Selecciona un archivo CSV
                 </p>
                 <p className="text-xs text-text-dim mb-4">
-                  Formato: sku, name, category, price, cost, stock, unitType, minStock
+                  Formato: sku, name, category, price, cost, stock, unitType, minStock, barcode, description, imageUrl
                 </p>
                 <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-mauve text-bg text-sm font-semibold hover:opacity-90 transition-all cursor-pointer">
                   <Upload className="w-4 h-4" />
@@ -226,10 +255,30 @@ export function CsvProductImport({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
                 <code className="text-xs text-text-secondary block whitespace-pre-wrap font-mono">
-{`sku,name,category,price,cost,stock,unitType,minStock
-SERV-CORTE,Corte de cabello,SER,250,0,999,servicio,0
-PROD-SHAMPOO,Shampoo 250ml,GEN,180,90,12,pieza,3`}
+{`sku,name,category,price,cost,stock,unitType,minStock,barcode,description,imageUrl
+SERV-CORTE,Corte de cabello,SER,250,0,999,servicio,0,,Corte profesional,
+COS-SHAMPOO,Shampoo 250ml,COS,180,90,12,pieza,3,7501234567890,Shampoo hidratante,
+BEB-AGUA,Agua 500ml,BEB,18,9,48,pieza,10,,Agua purificada,
+HER-TIJERAS,Tijeras acero,HER,450,220,5,pieza,1,,Tijeras 6 pulgadas,
+UNA-GEL,Gel semipermanente,UNA,120,55,15,pieza,5,,Gel soak off 10ml`}
                 </code>
+              </div>
+
+              <div className="bg-bg-active/30 rounded-lg p-4">
+                <p className="text-xs font-medium text-text-dim uppercase tracking-wider mb-2">
+                  Categorías disponibles
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {["BEB","BOT","COS","GEN","HER","KIT","MAT","SER","UNA","UNG"].map((code) => {
+                    const meta = getCategoryMeta(code);
+                    return (
+                      <div key={code} className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium ${meta.className}`}>
+                        <meta.icon className="w-3 h-3" />
+                        {meta.label}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

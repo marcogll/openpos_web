@@ -491,6 +491,13 @@ export const CONFIG_KEYS = {
   TERMS_ACCEPTED: "termsAccepted",
   STORE_LOGO_URL: "storeLogoUrl",
   WEBHOOK_RECEIPT_URL: "webhookReceiptUrl",
+  RECEIPT_COLOR_INK: "receiptColorInk",
+  RECEIPT_COLOR_PAPER: "receiptColorPaper",
+  RECEIPT_COLOR_BACKGROUND: "receiptColorBackground",
+  RECEIPT_COLOR_LINE: "receiptColorLine",
+  RECEIPT_COLOR_ACCENT: "receiptColorAccent",
+  RECEIPT_COLOR_ACCENT_DEEP: "receiptColorAccentDeep",
+  RECEIPT_COLOR_MUTED: "receiptColorMuted",
   TAB_TITLE: "tabTitle",
   FAVICON_SOURCE: "faviconSource",
   FAVICON_URL: "faviconUrl",
@@ -623,11 +630,15 @@ async function initTables() {
       min_stock  DOUBLE PRECISION DEFAULT 5,
       unit_type  TEXT NOT NULL DEFAULT 'pza',
       unit_qty   DOUBLE PRECISION DEFAULT 1,
+      description TEXT,
+      image_url   TEXT,
       active     INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (NOW()::text),
       updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
+  await s.unsafe(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`);
+  await s.unsafe(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT`);
   await s.unsafe(`
     CREATE TABLE IF NOT EXISTS sales (
       id         SERIAL PRIMARY KEY,
@@ -751,6 +762,13 @@ async function initDefaultConfig() {
     [CONFIG_KEYS.BILLING_SANDBOX]: "true",
     [CONFIG_KEYS.STORE_LOGO_URL]: "https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/vanity/logo_vanity_simplificado.svg",
     [CONFIG_KEYS.WEBHOOK_RECEIPT_URL]: "",
+    [CONFIG_KEYS.RECEIPT_COLOR_INK]: "#1c1a19",
+    [CONFIG_KEYS.RECEIPT_COLOR_PAPER]: "#faf7f3",
+    [CONFIG_KEYS.RECEIPT_COLOR_BACKGROUND]: "#e9e3da",
+    [CONFIG_KEYS.RECEIPT_COLOR_LINE]: "#e4dcd3",
+    [CONFIG_KEYS.RECEIPT_COLOR_ACCENT]: "#a9834f",
+    [CONFIG_KEYS.RECEIPT_COLOR_ACCENT_DEEP]: "#8a6a3c",
+    [CONFIG_KEYS.RECEIPT_COLOR_MUTED]: "#8c8378",
     [CONFIG_KEYS.TAB_TITLE]: "",
     [CONFIG_KEYS.FAVICON_SOURCE]: "favicon",
     [CONFIG_KEYS.FAVICON_URL]: "/favicon.svg",

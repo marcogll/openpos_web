@@ -16,6 +16,8 @@ type ProductRow = {
   unitType: string;
   minStock: number;
   barcode: string | null;
+  description: string | null;
+  imageUrl: string | null;
 };
 
 function validateProductRow(row: any, lineNum: number): string | null {
@@ -84,24 +86,28 @@ importRoutes.post("/products", async (c) => {
       const unitType = String(row.unitType || row.unittype || "pza").trim().toLowerCase();
       const barcode = row.barcode ? String(row.barcode).trim() : null;
       const name = String(row.name).trim();
+      const description = row.description ? String(row.description).trim() : null;
+      const imageUrl = row.imageurl || row.image_url || row.imageUrl
+        ? String(row.imageurl || row.image_url || row.imageUrl).trim()
+        : null;
 
       const existsInDb = existingSkus.has(sku);
 
       if (existsInDb) {
         if (updateExisting) {
           await db.run(
-            `UPDATE products SET name = $1, price = $2, cost = $3, category = $4, stock = $5, min_stock = $6, unit_type = $7, barcode = $8, updated_at = NOW()::text
-             WHERE sku = $9`,
-            [name, price, cost, category, stock, minStock, unitType, barcode, sku]
+            `UPDATE products SET name = $1, price = $2, cost = $3, category = $4, stock = $5, min_stock = $6, unit_type = $7, barcode = $8, description = $9, image_url = $10, updated_at = NOW()::text
+             WHERE sku = $11`,
+            [name, price, cost, category, stock, minStock, unitType, barcode, description, imageUrl, sku]
           );
           updated.push(sku);
         }
         // If not updating, just skip silently
       } else {
         await db.run(
-          `INSERT INTO products (sku, name, price, cost, category, stock, min_stock, unit_type, barcode, active, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, NOW()::text, NOW()::text)`,
-          [sku, name, price, cost, category, stock, minStock, unitType, barcode]
+          `INSERT INTO products (sku, name, price, cost, category, stock, min_stock, unit_type, barcode, description, image_url, active, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, NOW()::text, NOW()::text)`,
+          [sku, name, price, cost, category, stock, minStock, unitType, barcode, description, imageUrl]
         );
         created.push(sku);
         existingSkus.add(sku); // prevent duplicates within same batch
