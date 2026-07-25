@@ -1,5 +1,14 @@
 import { Hono } from "hono";
 import { getSql, getConfig } from "../webDb";
+import {
+  DEFAULT_RECEIPT_THEME,
+  buildMailtoUrl,
+  buildReceiptText,
+  buildWhatsappUrl,
+  renderVanityReceiptHtml,
+  type ReceiptSale,
+  type ReceiptStore,
+} from "../receiptTemplate";
 
 export const receiptsRoutes = new Hono();
 
@@ -23,8 +32,55 @@ receiptsRoutes.post("/generate", async (c) => {
     const storeRfc = (await getConfig("storeRfc")) || "";
     const storeAddress = (await getConfig("storeAddress")) || "";
     const storeLegalName = (await getConfig("storeLegalName")) || "";
-    const storeLogoUrl = (await getConfig("storeLogoUrl")) || "";
+    const storeLogoUrl =
+      (await getConfig("storeLogoUrl")) ||
+      "https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/vanity/logo_vanity_simplificado.svg";
     const webhookUrl = (await getConfig("webhookReceiptUrl")) || "";
+    const receiptTheme =
+      deliveryMethod === "printed" || deliveryMethod === "ticket"
+        ? {
+            ink: "#000000",
+            paper: "#ffffff",
+            background: "#ffffff",
+            line: "#000000",
+            accent: "#000000",
+            accentDeep: "#000000",
+            muted: "#444444",
+          }
+        : {
+            ink: (await getConfig("receiptColorInk")) || DEFAULT_RECEIPT_THEME.ink,
+            paper: (await getConfig("receiptColorPaper")) || DEFAULT_RECEIPT_THEME.paper,
+            background: (await getConfig("receiptColorBackground")) || DEFAULT_RECEIPT_THEME.background,
+            line: (await getConfig("receiptColorLine")) || DEFAULT_RECEIPT_THEME.line,
+            accent: (await getConfig("receiptColorAccent")) || DEFAULT_RECEIPT_THEME.accent,
+            accentDeep: (await getConfig("receiptColorAccentDeep")) || DEFAULT_RECEIPT_THEME.accentDeep,
+            muted: (await getConfig("receiptColorMuted")) || DEFAULT_RECEIPT_THEME.muted,
+          };
+    const saleData: ReceiptSale = {
+      ticket: sale.ticket,
+      subtotal: Number(sale.subtotal) || 0,
+      tax: Number(sale.tax) || 0,
+      discount: Number(sale.discount) || 0,
+      total: Number(sale.total) || 0,
+      received: Number(sale.received) || 0,
+      change: Number(sale.change) || 0,
+      method: sale.method,
+      status: sale.status,
+      items: JSON.parse(sale.items),
+      created_at: sale.created_at,
+      created_by: sale.created_by,
+      customer_email: sale.customer_email,
+    } as ReceiptSale;
+    const storeData: ReceiptStore = {
+      name: storeName,
+      rfc: storeRfc,
+      address: storeAddress,
+      legalName: storeLegalName,
+      logoUrl: storeLogoUrl,
+      theme: receiptTheme,
+    };
+    const receiptHtml = renderVanityReceiptHtml(saleData, storeData);
+    const receiptText = buildReceiptText(saleData, storeData);
 
     const payload = {
       event: "receipt.generated",
@@ -50,6 +106,14 @@ receiptsRoutes.post("/generate", async (c) => {
         itemCount: sale.item_count,
         createdAt: sale.created_at,
         createdBy: sale.created_by,
+        customerEmail: sale.customer_email,
+      },
+      receipt: {
+        html: receiptHtml,
+        text: receiptText,
+        filename: `${sale.ticket}.html`,
+        whatsappUrl: buildWhatsappUrl(saleData, storeData),
+        mailtoUrl: buildMailtoUrl(saleData, storeData),
       },
       deliveryMethod: deliveryMethod || "comprobante-digital",
     };
@@ -57,7 +121,7 @@ receiptsRoutes.post("/generate", async (c) => {
     let webhookStatus = "skipped";
     let webhookResponse = "";
 
-    if (webhookUrl) {
+    if (webhookUrl && (deliveryMethod || "comprobante-digital") === "comprobante-digital") {
       try {
         const res = await fetch(webhookUrl, {
           method: "POST",
@@ -80,6 +144,7 @@ receiptsRoutes.post("/generate", async (c) => {
       ok: true,
       ticket,
       webhookStatus,
+      receipt: payload.receipt,
       payload,
     }, 201);
   } catch (err) {

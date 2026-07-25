@@ -338,6 +338,24 @@ const MIME_TYPES: Record<string, string> = {
   webp: "image/webp",
 };
 
+function setStaticCacheHeaders(
+  c: Parameters<Parameters<typeof app.get>[1]>[0],
+  ext: string,
+  urlPath: string
+) {
+  if (ext === "html") {
+    c.header("Cache-Control", "no-store");
+    return;
+  }
+
+  if (urlPath.startsWith("/assets/")) {
+    c.header("Cache-Control", "public, max-age=31536000, immutable");
+    return;
+  }
+
+  c.header("Cache-Control", "no-cache");
+}
+
 app.get("/*", (c) => {
   const urlPath = new URL(c.req.url).pathname;
   const safePath = urlPath.split("?")[0];
@@ -358,14 +376,21 @@ app.get("/*", (c) => {
       const ext = filePath.split(".").pop()?.toLowerCase() || "";
       c.header("Content-Type", MIME_TYPES[ext] || "application/octet-stream");
       c.header("Content-Length", String(content.length));
+      setStaticCacheHeaders(c, ext, safePath);
       return c.body(content);
     }
   } catch {}
+
+  if (safePath.startsWith("/assets/")) {
+    c.header("Cache-Control", "no-store");
+    return c.text("Asset not found", 404);
+  }
 
   // SPA fallback: serve index.html
   try {
     const indexHtml = readFileSync(resolve(DIST_DIR, "index.html"));
     c.header("Content-Type", "text/html; charset=utf-8");
+    c.header("Cache-Control", "no-store");
     return c.body(indexHtml);
   } catch {
     return c.text("Not found", 404);

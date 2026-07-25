@@ -1,6 +1,7 @@
 import React from "react";
 import { Minus, Plus, X } from "lucide-react";
 import { useCartStore, type CartItem as CartItemType } from "../../stores/cartStore";
+import { Button } from "../ui/Button";
 
 type Props = {
   item: CartItemType;
@@ -12,10 +13,10 @@ export function CartItem({ item }: Props) {
   const remove = useCartStore((s) => s.remove);
 
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-border/50 bg-muted/60 p-3 animate-fade-in sm:flex sm:items-center sm:gap-3">
+    <div className="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-border/50 bg-muted/60 p-2.5 animate-fade-in sm:flex sm:items-center sm:gap-3 sm:p-3">
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-text-primary">
+        <div className="line-clamp-2 text-sm font-semibold leading-snug text-text-primary sm:truncate">
           {item.name}
         </div>
         <div className="text-xs text-text-dim">
@@ -24,41 +25,47 @@ export function CartItem({ item }: Props) {
       </div>
 
       {/* Qty controls */}
-      <div className="flex items-center justify-end gap-1">
-        <button
+      <div className="flex items-center justify-end gap-1 justify-self-end">
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => dec(item.sku)}
           aria-label={`Quitar uno de ${item.name}`}
-          className="flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/70 text-muted-foreground transition-all hover:bg-accent hover:text-foreground cursor-pointer"
+          className="bg-background/70 text-muted-foreground"
         >
           <Minus className="h-4 w-4" />
-        </button>
-        <span className="data-value w-11 text-center text-base font-semibold text-text-primary">
+        </Button>
+        <span className="data-value w-10 text-center text-base font-semibold text-text-primary sm:w-11">
           {item.unitType === "pza"
             ? item.qty
             : item.qty.toFixed(1)}
         </span>
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => inc(item.sku)}
           aria-label={`Agregar uno de ${item.name}`}
-          className="flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/70 text-muted-foreground transition-all hover:bg-accent hover:text-foreground cursor-pointer"
+          className="bg-background/70 text-muted-foreground"
         >
           <Plus className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
 
       {/* Subtotal */}
-      <div className="data-value text-base font-bold text-text-primary sm:w-20 sm:text-right">
+      <div className="data-value self-center text-base font-bold text-text-primary sm:w-20 sm:text-right">
         ${(item.price * item.qty).toFixed(2)}
       </div>
 
       {/* Remove */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => remove(item.sku)}
         aria-label={`Eliminar ${item.name}`}
-        className="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg text-muted-foreground transition-colors hover:bg-red/10 hover:text-red cursor-pointer"
+        className="justify-self-end hover:bg-red/10 hover:text-red active:bg-red/10"
       >
         <X className="h-4 w-4" />
-      </button>
+      </Button>
     </div>
   );
 }

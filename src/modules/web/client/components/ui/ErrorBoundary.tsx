@@ -4,6 +4,24 @@ import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 type Props = { children: React.ReactNode };
 type State = { hasError: boolean; error: Error | null };
 
+const CHUNK_RELOAD_KEY = "openpos:chunk-reload-at";
+const CHUNK_RELOAD_COOLDOWN_MS = 60_000;
+
+function isDynamicImportError(error: Error | null) {
+  const message = error?.message || "";
+  const name = error?.name || "";
+
+  return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError/i.test(
+    `${name} ${message}`
+  );
+}
+
+function reloadFresh() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("v", String(Date.now()));
+  window.location.assign(url.toString());
+}
+
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -13,6 +31,26 @@ export class ErrorBoundary extends React.Component<Props, State> {
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
+
+  componentDidCatch(error: Error) {
+    if (!isDynamicImportError(error) || typeof window === "undefined") return;
+
+    const lastReload = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+    if (Date.now() - lastReload < CHUNK_RELOAD_COOLDOWN_MS) return;
+
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+    reloadFresh();
+  }
+
+  private retry = () => {
+    if (isDynamicImportError(this.state.error) && typeof window !== "undefined") {
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      reloadFresh();
+      return;
+    }
+
+    this.setState({ hasError: false, error: null });
+  };
 
   render() {
     if (this.state.hasError) {
@@ -33,7 +71,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
-                onClick={() => this.setState({ hasError: false, error: null })}
+                onClick={this.retry}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bg-active text-text-secondary text-sm font-medium hover:bg-bg-section hover:text-text-primary transition-all"
               >
                 <RefreshCw className="w-4 h-4" />

@@ -2,6 +2,7 @@ import React from "react";
 import { Trash2, ShoppingBag, CreditCard } from "lucide-react";
 import { useCartStore } from "../../stores/cartStore";
 import { CartItem } from "./CartItem";
+import { Button } from "../ui/Button";
 
 type Props = {
   onPay: () => void;
@@ -19,7 +20,7 @@ export function Cart({ onPay }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border app-chrome-line bg-card shadow-panel">
       {/* Header */}
-      <div className="flex min-h-16 items-center justify-between border-b app-chrome-line bg-muted/40 px-4 py-3">
+      <div className="flex min-h-14 items-center justify-between border-b app-chrome-line bg-muted/40 px-3 py-2 sm:min-h-16 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
             <ShoppingBag className="h-5 w-5" />
@@ -34,19 +35,21 @@ export function Cart({ onPay }: Props) {
           </div>
         </div>
         {items.length > 0 && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={clear}
             aria-label="Limpiar carrito"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red/10 hover:text-red cursor-pointer"
+            className="hover:bg-red/10 hover:text-red"
             title="Limpiar carrito"
           >
             <Trash2 className="h-5 w-5" />
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Items */}
-      <div className="flex-1 space-y-2 overflow-auto p-3">
+      <div className="flex-1 space-y-2 overflow-auto overscroll-contain p-2 sm:p-3">
         {items.length === 0 ? (
           <div className="flex h-full min-h-40 flex-col items-center justify-center text-muted-foreground">
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-lg bg-muted">
@@ -61,7 +64,7 @@ export function Cart({ onPay }: Props) {
       </div>
 
       {/* Totals */}
-      <div className="space-y-2 border-t app-chrome-line bg-muted/35 p-4">
+      <div className="space-y-2 border-t app-chrome-line bg-muted/35 p-3 sm:p-4">
         <div className="flex justify-between text-sm">
           <span className="text-text-muted">Subtotal</span>
           <span className="data-value text-text-secondary">${subtotal.toFixed(2)}</span>
@@ -77,14 +80,16 @@ export function Cart({ onPay }: Props) {
         </div>
 
         {/* Pay button */}
-        <button
+        <Button
+          variant="success"
+          size="touch"
           onClick={onPay}
           disabled={items.length === 0}
-          className="mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-lg bg-green text-base font-extrabold text-bg shadow-card transition-all hover:bg-green-bright disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+          className="mt-3 h-14 w-full text-base font-extrabold"
         >
           <CreditCard className="h-5 w-5" />
           Cobrar ({itemCount} {itemCount === 1 ? "item" : "items"})
-        </button>
+        </Button>
       </div>
     </div>
   );

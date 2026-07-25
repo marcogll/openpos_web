@@ -23,7 +23,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-20 z-50 flex flex-col gap-2 animate-slide-up sm:inset-x-auto sm:bottom-4 sm:right-4">
+    <div className="fixed inset-x-3 bottom-[calc(9.25rem+env(safe-area-inset-bottom))] z-50 flex flex-col gap-2 animate-slide-up sm:inset-x-auto sm:bottom-4 sm:right-4">
       {toasts.map((toast) => {
         const Icon = ICONS[toast.type];
         return (

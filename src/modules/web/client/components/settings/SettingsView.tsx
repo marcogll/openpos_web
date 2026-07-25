@@ -12,11 +12,15 @@ import {
   Upload,
   Download,
   ExternalLink,
+  FileImage,
   FileSpreadsheet,
+  Mail,
+  MessageCircle,
   Bluetooth,
   MonitorCog,
   Code2,
   Send,
+  Search,
 } from "lucide-react";
 import { StoreConfig } from "./StoreConfig";
 import { BillingConfig } from "./BillingConfig";
@@ -486,17 +490,96 @@ function ClientToolsSection() {
 }
 
 function SalesSection() {
-  const [sales, setSales] = React.useState<any[]>([]);
+  const addToast = useUIStore((s) => s.addToast);
+  const [sales, setSales] = React.useState<SaleRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showImport, setShowImport] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [busyAction, setBusyAction] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
+  const loadSales = React.useCallback(() => {
+    setLoading(true);
     fetch("/api/sales?limit=500")
       .then((r) => r.json())
-      .then((data) => setSales(data.items || data))
-      .catch(() => {})
+      .then((data) => setSales(Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []))
+      .catch(() => addToast("Error al cargar ventas", "error"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [addToast]);
+
+  React.useEffect(() => {
+    loadSales();
+  }, [loadSales]);
+
+  const filteredSales = React.useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return sales;
+    return sales.filter((sale) => {
+      const haystack = [
+        sale.ticket,
+        sale.method,
+        sale.createdBy || sale.created_by,
+        sale.customerEmail || sale.customer_email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [query, sales]);
+
+  const runReceiptAction = async (
+    sale: SaleRow,
+    action: "print" | "html" | "png" | "whatsapp" | "email" | "send"
+  ) => {
+    const key = `${sale.ticket}:${action}`;
+    setBusyAction(key);
+    try {
+      const deliveryMethod = action === "print" ? "printed" : "digital";
+      const receipt = await generateReceipt(sale.ticket, deliveryMethod);
+
+      if (action === "print") {
+        printReceiptHtml(receipt.html);
+        addToast("Recibo abierto para imprimir o guardar PDF", "success");
+      }
+      if (action === "html") {
+        downloadBlob(receipt.filename || `${sale.ticket}.html`, receipt.html, "text/html;charset=utf-8");
+        addToast("Recibo HTML descargado", "success");
+      }
+      if (action === "png") {
+        await downloadReceiptPng(receipt, sale.ticket);
+        addToast("Recibo PNG descargado", "success");
+      }
+      if (action === "whatsapp") {
+        window.open(receipt.whatsappUrl, "_blank", "noopener,noreferrer");
+        addToast("WhatsApp abierto con el comprobante", "success");
+      }
+      if (action === "email") {
+        window.location.href = receipt.mailtoUrl;
+        addToast("Correo abierto con el comprobante", "success");
+      }
+      if (action === "send") {
+        const sent = await generateReceipt(sale.ticket, "comprobante-digital");
+        addToast(sent.webhookStatus === "sent" ? "Comprobante enviado" : "Comprobante generado", "success");
+      }
+    } catch {
+      addToast("No se pudo generar el comprobante", "error");
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const totals = React.useMemo(() => {
+    return filteredSales.reduce(
+      (acc, sale) => {
+        acc.amount += Number(sale.total) || 0;
+        acc.items += Number(sale.itemCount || sale.item_count) || 0;
+        return acc;
+      },
+      { amount: 0, items: 0 }
+    );
+  }, [filteredSales]);
+
+  const isBusy = (sale: SaleRow, action: string) => busyAction === `${sale.ticket}:${action}`;
 
   if (loading) {
     return (
@@ -512,50 +595,72 @@ function SalesSection() {
 
   return (
     <>
-      <div className="bg-bg-panel rounded-xl border border-bg-active overflow-hidden">
-        <div className="px-6 py-4 border-b border-bg-active flex items-center justify-between">
-          <h3 className="text-base font-bold text-text-primary">Historial de Ventas</h3>
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-bg-active text-text-secondary text-sm font-medium hover:bg-bg-section hover:text-text-primary transition-all"
-          >
-            <Upload className="w-4 h-4" />
-            Importar histórico
-          </button>
+      <div className="overflow-hidden rounded-xl border border-bg-active bg-bg-panel">
+        <div className="border-b border-bg-active px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h3 className="text-base font-bold text-text-primary">Ventas y comprobantes</h3>
+              <p className="mt-1 text-xs text-text-dim">
+                Reimprime, descarga o comparte recibos de ventas cerradas.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-bg-active px-4 py-2 text-sm font-medium text-text-secondary transition-all hover:bg-bg-section hover:text-text-primary"
+            >
+              <Upload className="h-4 w-4" />
+              Importar histórico
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar ticket, método, cajero o email..."
+                className="h-11 w-full rounded-lg border border-bg-active bg-bg pl-10 pr-3 text-sm text-text-secondary placeholder:text-text-dim focus:border-mauve/50 focus:ring-1 focus:ring-mauve/20"
+              />
+            </div>
+            <SummaryPill label="Ventas" value={filteredSales.length.toString()} />
+            <SummaryPill label="Total" value={formatMoney(totals.amount)} />
+          </div>
         </div>
-        <div className="overflow-auto max-h-[calc(100vh-16rem)]">
+
+        <div className="hidden overflow-auto lg:block">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-bg-active text-text-dim text-xs uppercase tracking-wider">
-                <th className="text-left px-6 py-3 font-medium">Ticket</th>
-                <th className="text-left px-6 py-3 font-medium">Fecha</th>
-                <th className="text-left px-6 py-3 font-medium">Método</th>
-                <th className="text-right px-6 py-3 font-medium">Total</th>
+              <tr className="border-b border-bg-active text-xs uppercase tracking-wider text-text-dim">
+                <th className="px-6 py-3 text-left font-medium">Ticket</th>
+                <th className="px-6 py-3 text-left font-medium">Fecha</th>
+                <th className="px-6 py-3 text-left font-medium">Método</th>
+                <th className="px-6 py-3 text-right font-medium">Total</th>
+                <th className="px-6 py-3 text-right font-medium">Comprobante</th>
               </tr>
             </thead>
             <tbody>
-              {sales.map((sale: any, i: number) => (
-                <tr
-                  key={i}
-                  className="border-b border-bg-active/50 hover:bg-bg-active/30 transition-colors"
-                >
-                  <td className="px-6 py-3 text-text-primary font-mono font-medium">
-                    {sale.ticket}
-                  </td>
-                  <td className="px-6 py-3 text-text-secondary">
-                    {new Date(sale.createdAt).toLocaleString("es-MX")}
-                  </td>
-                  <td className="px-6 py-3 text-text-secondary capitalize">
-                    {sale.method}
-                  </td>
-                  <td className="px-6 py-3 text-right text-green font-bold">
-                    ${Number(sale.total).toFixed(2)}
+              {filteredSales.map((sale) => (
+                <tr key={sale.ticket} className="border-b border-bg-active/50 transition-colors hover:bg-bg-active/30">
+                  <td className="px-6 py-3 font-mono font-medium text-text-primary">{sale.ticket}</td>
+                  <td className="px-6 py-3 text-text-secondary">{formatSaleDate(sale)}</td>
+                  <td className="px-6 py-3 capitalize text-text-secondary">{sale.method}</td>
+                  <td className="px-6 py-3 text-right font-bold text-green">{formatMoney(sale.total)}</td>
+                  <td className="px-6 py-3">
+                    <div className="flex justify-end gap-1.5">
+                      <ReceiptAction title="PDF / imprimir" loading={isBusy(sale, "print")} onClick={() => runReceiptAction(sale, "print")} icon={Printer} />
+                      <ReceiptAction title="Descargar HTML" loading={isBusy(sale, "html")} onClick={() => runReceiptAction(sale, "html")} icon={Download} />
+                      <ReceiptAction title="Descargar PNG" loading={isBusy(sale, "png")} onClick={() => runReceiptAction(sale, "png")} icon={FileImage} />
+                      <ReceiptAction title="WhatsApp" loading={isBusy(sale, "whatsapp")} onClick={() => runReceiptAction(sale, "whatsapp")} icon={MessageCircle} />
+                      <ReceiptAction title="Email" loading={isBusy(sale, "email")} onClick={() => runReceiptAction(sale, "email")} icon={Mail} />
+                      <ReceiptAction title="Enviar digital" loading={isBusy(sale, "send")} onClick={() => runReceiptAction(sale, "send")} icon={Send} />
+                    </div>
                   </td>
                 </tr>
               ))}
-              {sales.length === 0 && (
+              {filteredSales.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-text-dim">
+                  <td colSpan={5} className="px-6 py-12 text-center text-text-dim">
                     No hay ventas registradas
                   </td>
                 </tr>
@@ -563,19 +668,224 @@ function SalesSection() {
             </tbody>
           </table>
         </div>
+
+        <div className="space-y-3 p-3 lg:hidden">
+          {filteredSales.map((sale) => (
+            <div key={sale.ticket} className="rounded-lg border border-bg-active bg-bg p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="font-mono text-sm font-bold text-text-primary">{sale.ticket}</div>
+                  <div className="mt-1 text-xs text-text-dim">{formatSaleDate(sale)}</div>
+                  <div className="mt-1 text-xs capitalize text-text-secondary">{sale.method}</div>
+                </div>
+                <div className="text-right text-lg font-extrabold text-green">{formatMoney(sale.total)}</div>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <MobileReceiptAction label="PDF" loading={isBusy(sale, "print")} onClick={() => runReceiptAction(sale, "print")} icon={Printer} />
+                <MobileReceiptAction label="HTML" loading={isBusy(sale, "html")} onClick={() => runReceiptAction(sale, "html")} icon={Download} />
+                <MobileReceiptAction label="PNG" loading={isBusy(sale, "png")} onClick={() => runReceiptAction(sale, "png")} icon={FileImage} />
+                <MobileReceiptAction label="WhatsApp" loading={isBusy(sale, "whatsapp")} onClick={() => runReceiptAction(sale, "whatsapp")} icon={MessageCircle} />
+                <MobileReceiptAction label="Email" loading={isBusy(sale, "email")} onClick={() => runReceiptAction(sale, "email")} icon={Mail} />
+                <MobileReceiptAction label="Enviar" loading={isBusy(sale, "send")} onClick={() => runReceiptAction(sale, "send")} icon={Send} />
+              </div>
+            </div>
+          ))}
+          {filteredSales.length === 0 && (
+            <div className="rounded-lg border border-dashed border-bg-active p-8 text-center text-sm text-text-dim">
+              No hay ventas registradas
+            </div>
+          )}
+        </div>
       </div>
 
       {showImport && (
         <CsvSalesImport
           onClose={() => {
             setShowImport(false);
-            fetch("/api/sales?limit=500")
-              .then((r) => r.json())
-              .then((data) => setSales(data.items || data))
-              .catch(() => {});
+            loadSales();
           }}
         />
       )}
     </>
   );
+}
+
+type SaleRow = {
+  ticket: string;
+  method: string;
+  total: number;
+  itemCount?: number;
+  item_count?: number;
+  createdAt?: string;
+  created_at?: string;
+  createdBy?: string;
+  created_by?: string;
+  customerEmail?: string | null;
+  customer_email?: string | null;
+};
+
+type ReceiptResponse = {
+  html: string;
+  text: string;
+  filename: string;
+  whatsappUrl: string;
+  mailtoUrl: string;
+};
+
+async function generateReceipt(ticket: string, deliveryMethod: string): Promise<ReceiptResponse & { webhookStatus?: string }> {
+  const res = await fetch("/api/receipts/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ticket, deliveryMethod }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.receipt?.html) throw new Error("Receipt generation failed");
+  return { ...data.receipt, webhookStatus: data.webhookStatus };
+}
+
+function printReceiptHtml(html: string) {
+  const win = window.open("", "_blank", "width=420,height=720");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+function downloadBlob(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadReceiptPng(receipt: ReceiptResponse, ticket: string) {
+  const canvas = document.createElement("canvas");
+  const width = 900;
+  const lines = receipt.text.split("\n");
+  const height = Math.max(900, 180 + lines.length * 34);
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not available");
+
+  ctx.fillStyle = "#faf7f3";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#1c1a19";
+  ctx.textAlign = "center";
+  ctx.font = "700 42px Georgia, serif";
+  ctx.fillText("Vanity", width / 2, 78);
+  ctx.font = "600 18px Arial, sans-serif";
+  ctx.fillStyle = "#8a6a3c";
+  ctx.fillText("NAIL STUDIO", width / 2, 112);
+  ctx.strokeStyle = "#e4dcd3";
+  ctx.beginPath();
+  ctx.moveTo(80, 142);
+  ctx.lineTo(width - 80, 142);
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.font = "500 25px Arial, sans-serif";
+  let y = 190;
+  for (const line of lines) {
+    ctx.fillStyle = line.toLowerCase().startsWith("total:") ? "#8a6a3c" : "#1c1a19";
+    ctx.font = line.toLowerCase().startsWith("total:") ? "700 34px Georgia, serif" : "500 25px Arial, sans-serif";
+    ctx.fillText(line || " ", 80, y);
+    y += line.toLowerCase().startsWith("total:") ? 44 : 34;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("PNG generation failed"));
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${ticket}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      resolve();
+    }, "image/png");
+  });
+}
+
+function SummaryPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex h-11 min-w-32 items-center justify-between gap-3 rounded-lg border border-bg-active bg-bg px-3">
+      <span className="text-xs font-medium text-text-dim">{label}</span>
+      <span className="font-bold text-text-primary">{value}</span>
+    </div>
+  );
+}
+
+function ReceiptAction({
+  title,
+  loading,
+  onClick,
+  icon: Icon,
+}: {
+  title: string;
+  loading: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={loading}
+      onClick={onClick}
+      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-bg-active bg-bg text-text-muted transition-colors hover:bg-bg-active hover:text-text-primary disabled:opacity-50"
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+}
+
+function MobileReceiptAction({
+  label,
+  loading,
+  onClick,
+  icon: Icon,
+}: {
+  label: string;
+  loading: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={onClick}
+      className="flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-bg-active bg-bg-panel px-2 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-active disabled:opacity-50"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
+
+function formatSaleDate(sale: SaleRow) {
+  const raw = sale.createdAt || sale.created_at;
+  if (!raw) return "Sin fecha";
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? raw : date.toLocaleString("es-MX");
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(Number(value) || 0);
 }

@@ -27,6 +27,7 @@ function normalizeConfigValue(key: string, value: unknown) {
   if (key === CONFIG_KEYS.FAVICON_URL && !isSafeIconUrl(normalized)) return null;
   if (key === CONFIG_KEYS.FAVICON_SOURCE && !["favicon", "google", "custom"].includes(normalized)) return null;
   if (key === CONFIG_KEYS.TAB_TITLE) return normalized.slice(0, 64);
+  if (key.startsWith("receiptColor") && !/^#[0-9a-f]{6}$/i.test(normalized)) return null;
   if (normalized.length > 2048) return null;
   return normalized;
 }

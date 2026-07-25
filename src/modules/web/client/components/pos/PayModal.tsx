@@ -6,9 +6,11 @@ import {
   ArrowRightLeft,
   QrCode,
   Check,
+  Download,
   Receipt,
   Printer,
   Mail,
+  MessageCircle,
 } from "lucide-react";
 import { useCartStore } from "../../stores/cartStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -44,6 +46,16 @@ type CompletedSale = {
   created_at?: string;
   createdBy?: string;
   created_by?: string;
+  customerEmail?: string | null;
+  customer_email?: string | null;
+};
+
+type GeneratedReceipt = {
+  html: string;
+  text: string;
+  filename: string;
+  whatsappUrl: string;
+  mailtoUrl: string;
 };
 
 type ReceiptConfig = {
@@ -66,9 +78,9 @@ const RECEIPT_OPTIONS: {
   label: string;
   description: string;
 }[] = [
-  { id: "printed", icon: Printer, label: "Impreso", description: "Enviar al diálogo de impresión" },
-  { id: "comprobante-digital", icon: Mail, label: "Comprobante Digital", description: "Enviar comprobante vía webhook (n8n)" },
-  { id: "digital", icon: Receipt, label: "Descargar", description: "Descargar comprobante en texto" },
+  { id: "printed", icon: Printer, label: "Ticket B/N", description: "Imprimir el mismo formato en blanco y negro" },
+  { id: "comprobante-digital", icon: Mail, label: "Enviar digital", description: "Webhook/correo con recibo HTML" },
+  { id: "digital", icon: Download, label: "Descargar HTML", description: "Archivo listo para WhatsApp manual" },
   { id: "ticket", icon: Receipt, label: "Ticket", description: "Guardar venta sin imprimir" },
 ];
 
@@ -126,8 +138,6 @@ export function PayModal({ onClose, onConfirm }: Props) {
     printerEnabled: true,
     printerWidth: 58,
   });
-  const [storeLogoUrl, setStoreLogoUrl] = React.useState("");
-  const [storeName, setStoreName] = React.useState("MI TIENDA");
 
   const rec = parseFloat(received) || 0;
   const change = Math.max(0, rec - total);
@@ -145,8 +155,6 @@ export function PayModal({ onClose, onConfirm }: Props) {
           printerEnabled: data.printerEnabled !== "false",
           printerWidth: Number(data.printerWidth) || 58,
         });
-        if (data.storeLogoUrl) setStoreLogoUrl(data.storeLogoUrl);
-        if (data.storeName) setStoreName(data.storeName);
       })
       .catch(() => {});
   }, []);
@@ -210,15 +218,19 @@ export function PayModal({ onClose, onConfirm }: Props) {
     onConfirm();
   };
 
-  const handleReceiptDelivery = (delivery: ReceiptDelivery, sale = completedSale) => {
+  const handleReceiptDelivery = async (delivery: ReceiptDelivery, sale = completedSale) => {
     if (!sale) return;
 
     if (delivery === "printed") {
       if (!receiptConfig.printerEnabled) {
         addToast("La impresora está desactivada en configuración", "warning");
       } else {
-        printReceipt(sale, receiptConfig.printerWidth);
-        addToast("Comprobante enviado a impresión", "success");
+        try {
+          await printReceipt(sale);
+          addToast("Ticket B/N enviado a impresión", "success");
+        } catch {
+          addToast("Error al generar ticket para impresión", "error");
+        }
       }
       finishSale();
       return;
@@ -230,8 +242,12 @@ export function PayModal({ onClose, onConfirm }: Props) {
     }
 
     if (delivery === "digital") {
-      downloadReceipt(sale);
-      addToast("Comprobante digital generado", "success");
+      try {
+        await downloadReceipt(sale);
+        addToast("Recibo HTML descargado", "success");
+      } catch {
+        addToast("Error al descargar recibo", "error");
+      }
       finishSale();
       return;
     }
@@ -258,6 +274,9 @@ export function PayModal({ onClose, onConfirm }: Props) {
           addToast("Comprobante guardado (webhook no configurado)", "warning");
         } else {
           addToast("Error al enviar a n8n", "error");
+        }
+        if (data.receipt?.whatsappUrl) {
+          window.open(data.receipt.whatsappUrl, "_blank", "noopener,noreferrer");
         }
       } else {
         addToast("Error al generar comprobante", "error");
@@ -466,7 +485,7 @@ export function PayModal({ onClose, onConfirm }: Props) {
                       key={option.id}
                       onClick={() => {
                         setSelectedReceipt(i);
-                        handleReceiptDelivery(option.id);
+                        void handleReceiptDelivery(option.id);
                       }}
                       className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
                         selected
@@ -487,6 +506,7 @@ export function PayModal({ onClose, onConfirm }: Props) {
                         </div>
                         <div className="text-xs text-text-dim">{option.description}</div>
                       </div>
+                      {option.id === "digital" && <MessageCircle className="ml-auto h-4 w-4 text-text-dim" />}
                       {selected && <Check className="w-5 h-5 text-mauve ml-auto" />}
                     </button>
                   );
@@ -505,143 +525,55 @@ export function PayModal({ onClose, onConfirm }: Props) {
           </span>
         </div>
 
-        {storeLogoUrl && (
-          <img data-store-logo src={storeLogoUrl} alt="" className="hidden" />
-        )}
       </div>
     </div>
   );
 }
 
 function isReceiptDelivery(value: unknown): value is ReceiptDelivery {
-  return value === "digital" || value === "ticket" || value === "printed";
+  return value === "digital" || value === "ticket" || value === "printed" || value === "comprobante-digital";
 }
 
-function formatReceiptText(sale: CompletedSale): string {
-  const createdAt = sale.createdAt || sale.created_at || new Date().toISOString();
-  const employee = sale.createdBy || sale.created_by || "Cajero";
-  const lines = [
-    "COMPROBANTE DE VENTA",
-    `Ticket: ${sale.ticket}`,
-    `Fecha: ${new Date(createdAt).toLocaleString("es-MX")}`,
-    `Cajero: ${employee}`,
-    "",
-    "PRODUCTOS",
-    ...sale.items.map((item) => {
-      const qty = Number(item.qty);
-      const total = qty * Number(item.price);
-      const unit = item.unitType || item.unit_type || "pza";
-      return `${qty} ${unit}  ${item.name}  $${total.toFixed(2)}`;
+async function generateReceipt(sale: CompletedSale, deliveryMethod: ReceiptDelivery): Promise<GeneratedReceipt> {
+  const res = await fetch("/api/receipts/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ticket: sale.ticket,
+      deliveryMethod,
     }),
-    "",
-    `Subtotal: $${Number(sale.subtotal).toFixed(2)}`,
-    `IVA: $${Number(sale.tax).toFixed(2)}`,
-    `Total: $${Number(sale.total).toFixed(2)}`,
-    `Metodo: ${sale.method}`,
-    `Recibido: $${Number(sale.received).toFixed(2)}`,
-    `Cambio: $${Number(sale.change).toFixed(2)}`,
-  ];
-
-  return lines.join("\n");
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.receipt?.html) {
+    throw new Error("No se pudo generar el recibo");
+  }
+  return data.receipt as GeneratedReceipt;
 }
 
-function downloadReceipt(sale: CompletedSale) {
-  const blob = new Blob([formatReceiptText(sale)], { type: "text/plain;charset=utf-8" });
+async function downloadReceipt(sale: CompletedSale) {
+  const receipt = await generateReceipt(sale, "digital");
+  const blob = new Blob([receipt.html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${sale.ticket || "ticket"}.txt`;
+  link.download = receipt.filename || `${sale.ticket || "ticket"}.html`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+  window.open(receipt.whatsappUrl, "_blank", "noopener,noreferrer");
 }
 
-function printReceipt(sale: CompletedSale, printerWidth: number) {
+async function printReceipt(sale: CompletedSale) {
   const win = window.open("", "_blank", "width=420,height=640");
   if (!win) {
     window.print();
     return;
   }
 
-  const logoEl = document.querySelector('[data-store-logo]') as HTMLImageElement | null;
-  const logoUrl = logoEl?.src || "";
-
-  win.document.write(buildPrintableReceipt(sale, logoUrl, printerWidth));
+  const receipt = await generateReceipt(sale, "printed");
+  win.document.write(receipt.html);
   win.document.close();
   win.focus();
   win.print();
-}
-
-function buildPrintableReceipt(sale: CompletedSale, logoUrl = "", printerWidth = 58): string {
-  const createdAt = sale.createdAt || sale.created_at || new Date().toISOString();
-  const employee = sale.createdBy || sale.created_by || "Cajero";
-  const pageWidthMm = printerWidth >= 80 ? 80 : 58;
-  const rows = sale.items
-    .map((item) => {
-      const qty = Number(item.qty);
-      const total = qty * Number(item.price);
-      const unit = item.unitType || item.unit_type || "pza";
-      return `
-        <tr>
-          <td colspan="2">${escapeHtml(item.name)}</td>
-        </tr>
-        <tr>
-          <td>${qty} ${escapeHtml(unit)} x $${Number(item.price).toFixed(2)}</td>
-          <td class="right">$${total.toFixed(2)}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  return `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>${escapeHtml(sale.ticket)}</title>
-        <style>
-          @page { size: ${pageWidthMm}mm auto; margin: 3mm; }
-          body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #000; }
-          h1 { font-size: 15px; text-align: center; margin: 0 0 8px; }
-          .logo { display: block; margin: 0 auto 8px; max-width: 200px; max-height: 80px; }
-          table { width: 100%; border-collapse: collapse; }
-          td { padding: 2px 0; vertical-align: top; }
-          .center { text-align: center; }
-          .right { text-align: right; }
-          .line { border-top: 1px dashed #000; margin: 8px 0; }
-          .total { font-size: 15px; font-weight: 700; }
-        </style>
-      </head>
-      <body>
-        ${logoUrl ? `<img class="logo" src="${escapeHtml(logoUrl)}" alt="Logo" />` : ""}
-        <h1>COMPROBANTE DE VENTA</h1>
-        <div>Ticket: ${escapeHtml(sale.ticket)}</div>
-        <div>Fecha: ${escapeHtml(new Date(createdAt).toLocaleString("es-MX"))}</div>
-        <div>Cajero: ${escapeHtml(employee)}</div>
-        <div class="line"></div>
-        <table>${rows}</table>
-        <div class="line"></div>
-        <table>
-          <tr><td>Subtotal</td><td class="right">$${Number(sale.subtotal).toFixed(2)}</td></tr>
-          <tr><td>IVA</td><td class="right">$${Number(sale.tax).toFixed(2)}</td></tr>
-          <tr class="total"><td>Total</td><td class="right">$${Number(sale.total).toFixed(2)}</td></tr>
-          <tr><td>Metodo</td><td class="right">${escapeHtml(sale.method)}</td></tr>
-          <tr><td>Recibido</td><td class="right">$${Number(sale.received).toFixed(2)}</td></tr>
-          <tr><td>Cambio</td><td class="right">$${Number(sale.change).toFixed(2)}</td></tr>
-        </table>
-        <div class="line"></div>
-        <div class="center">Gracias por su compra</div>
-      </body>
-    </html>
-  `;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }

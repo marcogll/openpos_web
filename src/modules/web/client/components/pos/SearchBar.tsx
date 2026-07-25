@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X } from "lucide-react";
+import { ScanBarcode, Search, X } from "lucide-react";
 
 type Props = {
   value: string;
@@ -11,12 +11,16 @@ export function SearchBar({ value, onChange }: Props) {
     <label className="relative block rounded-lg shadow-card">
       <span className="sr-only">Buscar producto por nombre, SKU o código de barras</span>
       <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
+      <ScanBarcode className="pointer-events-none absolute right-14 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-text-dim sm:block" />
       <input
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Escanea o busca por nombre, SKU o código..."
-        className="h-14 w-full rounded-lg border border-border bg-card pl-12 pr-14 text-base font-medium text-foreground transition-all placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/15"
+        placeholder="Escanea o busca..."
+        inputMode="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        className="h-14 w-full rounded-lg border border-border bg-card pl-12 pr-14 text-base font-medium text-foreground transition-all placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/15 sm:pr-20"
         autoFocus
       />
       {value && (
