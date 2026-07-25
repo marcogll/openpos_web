@@ -7,7 +7,6 @@ import {
   Users,
   Percent,
   Printer,
-  TrendingUp,
   UsersRound,
   Upload,
   Download,
@@ -35,7 +34,7 @@ import { ApiReference } from "./ApiReference";
 import { TelegramConfig } from "./TelegramConfig";
 import { useUIStore } from "../../stores/uiStore";
 
-type Section = "tienda" | "interfaz" | "api" | "telegram" | "facturacion" | "productos" | "usuarios" | "impuestos" | "impresora" | "escaner" | "ventas" | "clientes";
+type Section = "tienda" | "interfaz" | "api" | "telegram" | "facturacion" | "productos" | "usuarios" | "impuestos" | "impresora" | "escaner" | "clientes";
 
 const MENU_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "tienda", label: "Tienda", icon: Store },
@@ -48,7 +47,6 @@ const MENU_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "impuestos", label: "Impuestos", icon: Percent },
   { id: "impresora", label: "Impresora", icon: Printer },
   { id: "escaner", label: "Escáner/QR", icon: Bluetooth },
-  { id: "ventas", label: "Ventas", icon: TrendingUp },
   { id: "clientes", label: "Clientes", icon: UsersRound },
 ];
 
@@ -74,8 +72,6 @@ const SECTION_ALIASES: Record<string, Section> = {
   impresora: "impresora",
   scanner: "escaner",
   escaner: "escaner",
-  ventas: "ventas",
-  sales: "ventas",
   clientes: "clientes",
   clients: "clientes",
   client: "clientes",
@@ -125,8 +121,6 @@ export function SettingsView() {
         return <PrinterConfig />;
       case "escaner":
         return <BarcodeConfig />;
-      case "ventas":
-        return <SalesSection />;
       case "clientes":
         return <ClientToolsSection />;
       default:
