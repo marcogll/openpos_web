@@ -1,8 +1,6 @@
 import React from "react";
-import { db } from "./src/db/client.js";
-import { users } from "./src/db/schema.js";
+import { getActiveUsers } from "./src/db/client.js";
 import { logger } from "./src/logger.js";
-import { sql } from "drizzle-orm";
 
 type User = {
   id: number;
@@ -16,11 +14,17 @@ type User = {
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [user, setUser] = React.useState<User | null>(null);
-  
+  const cachedUsers = React.useRef<Array<{ id: number; username: string; pin: string; name: string; role: string; active: number }>>([]);
+
+  React.useEffect(() => {
+    getActiveUsers().then(u => { cachedUsers.current = u; }).catch(err => {
+      logger.error("Failed to preload users", { error: String(err) });
+    });
+  }, []);
+
   const login = React.useCallback((username: string, pin: string): boolean => {
-    const dbUsers = db.select().from(users).where(sql`active = 1`).all();
-    const validUser = dbUsers.find(
-      (u: any) => u.username.toLowerCase() === username.toLowerCase() && u.pin === pin && u.active === 1
+    const validUser = cachedUsers.current.find(
+      (u) => u.username.toLowerCase() === username.toLowerCase() && u.pin === pin && u.active === 1
     );
 
     if (validUser) {

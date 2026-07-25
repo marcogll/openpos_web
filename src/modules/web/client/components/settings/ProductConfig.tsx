@@ -41,6 +41,19 @@ const EMPTY_FORM: ProductForm = {
 
 const UNIT_TYPES = ["pza", "kg", "g", "lt", "ml", "m", "cm", "servicio"];
 
+const normalizeProduct = (product: any): Product => ({
+  id: Number(product.id ?? 0),
+  sku: product.sku || "",
+  name: product.name || "",
+  price: Number(product.price ?? 0),
+  cost: product.cost === null || product.cost === undefined ? null : Number(product.cost),
+  category: product.category || "GEN",
+  stock: Number(product.stock ?? 0),
+  minStock: product.minStock ?? product.min_stock ?? null,
+  unitType: product.unitType || product.unit_type || "pza",
+  barcode: product.barcode || null,
+});
+
 export function ProductConfig() {
   const addToast = useUIStore((s) => s.addToast);
   const [products, setProducts] = React.useState<Product[]>([]);
@@ -56,7 +69,10 @@ export function ProductConfig() {
   const fetchProducts = () => {
     fetch("/api/products?limit=500")
       .then((r) => r.json())
-      .then((data) => setProducts(data.items || data))
+      .then((data) => {
+        const list = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
+        setProducts(list.map(normalizeProduct));
+      })
       .catch(() => addToast("Error al cargar productos", "error"))
       .finally(() => setLoading(false));
   };
@@ -66,10 +82,14 @@ export function ProductConfig() {
   }, []);
 
   const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase())
+    (p) => {
+      const term = search.toLowerCase();
+      return (
+        p.name.toLowerCase().includes(term) ||
+        p.sku.toLowerCase().includes(term) ||
+        p.category.toLowerCase().includes(term)
+      );
+    }
   );
 
   const openAdd = () => {

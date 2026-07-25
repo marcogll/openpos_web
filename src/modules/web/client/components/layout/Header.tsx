@@ -10,6 +10,7 @@ export function Header() {
   const total = useCartStore((s) => s.total());
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const setTheme = useUIStore((s) => s.setTheme);
 
   React.useEffect(() => {
     const tick = () =>

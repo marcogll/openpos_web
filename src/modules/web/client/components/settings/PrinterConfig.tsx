@@ -14,6 +14,7 @@ type PrinterConfigData = {
 };
 
 const PRINTER_TYPES = [
+  { value: "CUPS", label: "CUPS (Linux/macOS)" },
   { value: "Windows Printer", label: "Windows Printer" },
   { value: "TCP", label: "TCP / Red" },
   { value: "USB", label: "USB" },
@@ -26,10 +27,10 @@ const CHAR_SETS = ["PC437", "PC850", "PC858", "WIN1252", "ISO8859_1"];
 const DEFAULT_CONFIG: PrinterConfigData = {
   printerEnabled: true,
   printerRequired: true,
-  printerType: "Windows Printer",
-  printerInterface: "printer:POS-80",
-  printerWidth: 48,
-  printerCharacterSet: "PC437",
+  printerType: "CUPS",
+  printerInterface: "TICKETS",
+  printerWidth: 58,
+  printerCharacterSet: "PC850",
   receiptPromptOnSale: true,
   receiptDefaultDelivery: "printed",
 };

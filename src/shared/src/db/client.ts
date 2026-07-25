@@ -34,6 +34,8 @@ export const CONFIG_KEYS = {
   BILLING_PROVIDER: "billingProvider",
   BILLING_SANDBOX: "billingSandbox",
   TERMS_ACCEPTED: "termsAccepted",
+  TELEGRAM_BOT_TOKEN: "telegramBotToken",
+  TELEGRAM_WEBHOOK_SECRET: "telegramWebhookSecret",
 } as const;
 
 export type ConfigKey = typeof CONFIG_KEYS[keyof typeof CONFIG_KEYS];
@@ -77,6 +79,11 @@ export const db = new Proxy({} as any, {
     throw new Error(`db.${String(prop)} called — use PostgreSQL webDb for web mode`);
   },
 });
+
+export async function getActiveUsers(): Promise<Array<{ id: number; username: string; pin: string; name: string; role: string; active: number }>> {
+  const rows = await getSql()`SELECT id, username, pin, name, role, active FROM users WHERE active = 1`;
+  return rows as any;
+}
 
 export async function initDb() {
   if (_initialized) return;

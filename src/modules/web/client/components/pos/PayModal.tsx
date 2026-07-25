@@ -21,7 +21,7 @@ type Props = {
 
 type Method = "efectivo" | "tarjeta" | "transf." | "qr/codi";
 type Step = "method" | "cash" | "receipt";
-type ReceiptDelivery = "digital" | "ticket" | "printed";
+type ReceiptDelivery = "digital" | "ticket" | "printed" | "comprobante-digital";
 
 type CompletedSale = {
   ticket: string;
@@ -66,7 +66,8 @@ const RECEIPT_OPTIONS: {
   description: string;
 }[] = [
   { id: "printed", icon: Printer, label: "Impreso", description: "Enviar al diálogo de impresión" },
-  { id: "digital", icon: Mail, label: "Digital", description: "Descargar comprobante en texto" },
+  { id: "comprobante-digital", icon: Mail, label: "Comprobante Digital", description: "Enviar comprobante vía webhook (n8n)" },
+  { id: "digital", icon: Receipt, label: "Descargar", description: "Descargar comprobante en texto" },
   { id: "ticket", icon: Receipt, label: "Ticket", description: "Guardar venta sin imprimir" },
 ];
 
@@ -123,6 +124,8 @@ export function PayModal({ onClose, onConfirm }: Props) {
     defaultDelivery: "printed",
     printerEnabled: true,
   });
+  const [storeLogoUrl, setStoreLogoUrl] = React.useState("");
+  const [storeName, setStoreName] = React.useState("MI TIENDA");
 
   const rec = parseFloat(received) || 0;
   const change = Math.max(0, rec - total);
@@ -139,6 +142,8 @@ export function PayModal({ onClose, onConfirm }: Props) {
             : "printed",
           printerEnabled: data.printerEnabled !== "false",
         });
+        if (data.storeLogoUrl) setStoreLogoUrl(data.storeLogoUrl);
+        if (data.storeName) setStoreName(data.storeName);
       })
       .catch(() => {});
   }, []);
@@ -216,6 +221,11 @@ export function PayModal({ onClose, onConfirm }: Props) {
       return;
     }
 
+    if (delivery === "comprobante-digital") {
+      sendComprobanteDigital(sale);
+      return;
+    }
+
     if (delivery === "digital") {
       downloadReceipt(sale);
       addToast("Comprobante digital generado", "success");
@@ -224,6 +234,34 @@ export function PayModal({ onClose, onConfirm }: Props) {
     }
 
     addToast(`Ticket ${sale.ticket} guardado`, "success");
+    finishSale();
+  };
+
+  const sendComprobanteDigital = async (sale: CompletedSale) => {
+    try {
+      const res = await fetch("/api/receipts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticket: sale.ticket,
+          deliveryMethod: "comprobante-digital",
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (data.webhookStatus === "sent") {
+          addToast("Comprobante enviado a n8n correctamente", "success");
+        } else if (data.webhookStatus === "skipped") {
+          addToast("Comprobante guardado (webhook no configurado)", "warning");
+        } else {
+          addToast("Error al enviar a n8n", "error");
+        }
+      } else {
+        addToast("Error al generar comprobante", "error");
+      }
+    } catch {
+      addToast("Error de conexión al generar comprobante", "error");
+    }
     finishSale();
   };
 
@@ -463,6 +501,10 @@ export function PayModal({ onClose, onConfirm }: Props) {
             {step === "receipt" && "↑↓ seleccionar · Enter entregar comprobante"}
           </span>
         </div>
+
+        {storeLogoUrl && (
+          <img data-store-logo src={storeLogoUrl} alt="" className="hidden" />
+        )}
       </div>
     </div>
   );
@@ -519,13 +561,16 @@ function printReceipt(sale: CompletedSale) {
     return;
   }
 
-  win.document.write(buildPrintableReceipt(sale));
+  const logoEl = document.querySelector('[data-store-logo]') as HTMLImageElement | null;
+  const logoUrl = logoEl?.src || "";
+
+  win.document.write(buildPrintableReceipt(sale, logoUrl));
   win.document.close();
   win.focus();
   win.print();
 }
 
-function buildPrintableReceipt(sale: CompletedSale): string {
+function buildPrintableReceipt(sale: CompletedSale, logoUrl = ""): string {
   const createdAt = sale.createdAt || sale.created_at || new Date().toISOString();
   const employee = sale.createdBy || sale.created_by || "Cajero";
   const rows = sale.items
@@ -552,9 +597,10 @@ function buildPrintableReceipt(sale: CompletedSale): string {
         <meta charset="utf-8" />
         <title>${escapeHtml(sale.ticket)}</title>
         <style>
-          @page { size: 80mm auto; margin: 4mm; }
+          @page { size: 58mm auto; margin: 3mm; }
           body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #000; }
           h1 { font-size: 15px; text-align: center; margin: 0 0 8px; }
+          .logo { display: block; margin: 0 auto 8px; max-width: 200px; max-height: 80px; }
           table { width: 100%; border-collapse: collapse; }
           td { padding: 2px 0; vertical-align: top; }
           .center { text-align: center; }
@@ -564,6 +610,7 @@ function buildPrintableReceipt(sale: CompletedSale): string {
         </style>
       </head>
       <body>
+        ${logoUrl ? `<img class="logo" src="${escapeHtml(logoUrl)}" alt="Logo" />` : ""}
         <h1>COMPROBANTE DE VENTA</h1>
         <div>Ticket: ${escapeHtml(sale.ticket)}</div>
         <div>Fecha: ${escapeHtml(new Date(createdAt).toLocaleString("es-MX"))}</div>

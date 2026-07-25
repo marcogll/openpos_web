@@ -4,7 +4,7 @@ import type { MiddlewareHandler } from "hono";
 type AuthUser = {
   id: number;
   username: string;
-  role: "admin" | "cashier";
+  role: "owner-admin" | "admin" | "manager" | "cashier";
   exp: number;
 };
 
@@ -23,7 +23,8 @@ const isPublicRequest = (path: string, method: string) =>
   path === "/" ||
   (path === "/auth/login" && method === "POST") ||
   (path === "/auth/setup") ||
-  (path === "/config" && method === "GET");
+  (path === "/config" && method === "GET") ||
+  (path.startsWith("/telegram/webhook") && method === "POST");
 
 export const createToken = (user: Omit<AuthUser, "exp">) => {
   const header = { alg: "HS256", typ: "JWT" };
@@ -74,7 +75,7 @@ export const requireAuth: MiddlewareHandler = async (c, next) => {
 export const requireRole = (...roles: AuthUser["role"][]): MiddlewareHandler => async (c, next) => {
   const user = c.get("user") as AuthUser | undefined;
   if (!user) return c.json({ error: "Unauthorized" }, 401);
+  if (user.role === "owner-admin" && roles.includes("admin")) return next();
   if (!roles.includes(user.role)) return c.json({ error: "Forbidden" }, 403);
   return next();
 };
-

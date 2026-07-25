@@ -5,11 +5,12 @@ import { getRawDb } from "../webDb";
 type UserBody = {
   username?: string;
   name?: string;
+  email?: string;
   pin?: string;
   role?: string;
 };
 
-const VALID_ROLES = new Set(["admin", "cashier"]);
+const VALID_ROLES = new Set(["owner-admin", "admin", "cashier"]);
 
 export const userRoutes = new Hono();
 
@@ -17,6 +18,7 @@ function normalizeUser(body: UserBody) {
   return {
     username: body.username?.trim() || "",
     name: body.name?.trim() || "",
+    email: body.email?.trim() || "",
     pin: body.pin?.trim() || "",
     role: body.role || "cashier",
   };
@@ -27,6 +29,7 @@ function toUserResponse(row: any) {
     id: row.id,
     username: row.username,
     name: row.name,
+    email: row.email,
     role: row.role,
     active: row.active,
     created_at: row.created_at,
@@ -49,7 +52,7 @@ function validateUser(body: ReturnType<typeof normalizeUser>, requirePin: boolea
   }
 
   if (!VALID_ROLES.has(body.role)) {
-    return "role must be admin or cashier";
+    return "role must be owner-admin, admin or cashier";
   }
 
   return null;
@@ -59,7 +62,7 @@ userRoutes.get("/", async (c) => {
   try {
     const db = getRawDb();
     const rows = await db.all(
-      "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE active = 1 ORDER BY username ASC"
+      "SELECT id, username, name, email, pin, role, active, created_at, updated_at FROM users WHERE active = 1 ORDER BY username ASC"
     );
 
     return c.json(rows.map(toUserResponse));
@@ -84,13 +87,13 @@ userRoutes.post("/", async (c) => {
 
     const now = new Date().toISOString();
     await db.run(
-      `INSERT INTO users (username, name, pin, role, active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 1, $5, $6)`,
-      [body.username, body.name, hashPin(body.pin), body.role, now, now]
+      `INSERT INTO users (username, name, email, pin, role, active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 1, $6, $7)`,
+      [body.username, body.name, body.email || null, hashPin(body.pin), body.role, now, now]
     );
 
     const created = await db.all(
-      "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE username = $1",
+      "SELECT id, username, name, email, pin, role, active, created_at, updated_at FROM users WHERE username = $1",
       [body.username]
     );
 
@@ -130,21 +133,21 @@ userRoutes.put("/:id", async (c) => {
     if (body.pin) {
       await db.run(
         `UPDATE users
-         SET username = $1, name = $2, pin = $3, role = $4, updated_at = NOW()::text
-         WHERE id = $5`,
-        [body.username, body.name, hashPin(body.pin), body.role, id]
+         SET username = $1, name = $2, email = $3, pin = $4, role = $5, updated_at = NOW()::text
+         WHERE id = $6`,
+        [body.username, body.name, body.email || null, hashPin(body.pin), body.role, id]
       );
     } else {
       await db.run(
         `UPDATE users
-         SET username = $1, name = $2, role = $3, updated_at = NOW()::text
-         WHERE id = $4`,
-        [body.username, body.name, body.role, id]
+         SET username = $1, name = $2, email = $3, role = $4, updated_at = NOW()::text
+         WHERE id = $5`,
+        [body.username, body.name, body.email || null, body.role, id]
       );
     }
 
     const updated = await db.get(
-      "SELECT id, username, name, pin, role, active, created_at, updated_at FROM users WHERE id = $1",
+      "SELECT id, username, name, email, pin, role, active, created_at, updated_at FROM users WHERE id = $1",
       [id]
     );
 

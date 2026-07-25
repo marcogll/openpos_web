@@ -121,6 +121,121 @@ importRoutes.post("/products", async (c) => {
   }
 });
 
+// ── Clients import ───────────────────────────────────────────────────────
+
+function validateClientRow(row: any, lineNum: number): string | null {
+  const rfc = String(row.rfc || "").trim();
+  const razonSocial = String(row.razonSocial || row.razonsocial || row.razon_social || row.nombre || "").trim();
+
+  if (!rfc) return `Línea ${lineNum}: RFC vacío`;
+  if (!razonSocial) return `Línea ${lineNum}: nombre/razón social vacío`;
+  if (!/^[A-Z&Ñ0-9]{10,13}$/i.test(rfc)) return `Línea ${lineNum}: RFC inválido`;
+  return null;
+}
+
+async function getNextClientCode(db: ReturnType<typeof getRawDb>, usedCodes: Set<string>) {
+  const row = await db.get("SELECT code FROM clients ORDER BY id DESC LIMIT 1") as any;
+  let next = 1;
+  if (row?.code) {
+    const parsed = Number.parseInt(String(row.code).replace("CL-", ""), 10);
+    if (Number.isFinite(parsed)) next = parsed + 1;
+  }
+
+  let code = `CL-${String(next).padStart(5, "0")}`;
+  while (usedCodes.has(code)) {
+    next += 1;
+    code = `CL-${String(next).padStart(5, "0")}`;
+  }
+  usedCodes.add(code);
+  return code;
+}
+
+importRoutes.post("/clients", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { rows, updateExisting } = body as { rows: any[]; updateExisting: boolean };
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return c.json({ error: "No rows provided" }, 400);
+    }
+
+    const db = getRawDb();
+    const existingRows = await db.all("SELECT rfc, code FROM clients") as any[];
+    const existingRfcs = new Set(existingRows.map((r: any) => String(r.rfc).toUpperCase()));
+    const usedCodes = new Set(existingRows.map((r: any) => String(r.code)));
+    const seenRfcs = new Set<string>();
+
+    const created: string[] = [];
+    const updated: string[] = [];
+    const rejected: { line: number; rfc: string; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const lineNum = i + 2;
+      const rfc = String(row.rfc || "").trim().toUpperCase();
+
+      const error = validateClientRow(row, lineNum);
+      if (error) {
+        rejected.push({ line: lineNum, rfc, reason: error });
+        continue;
+      }
+      if (seenRfcs.has(rfc)) {
+        rejected.push({ line: lineNum, rfc, reason: "RFC duplicado en archivo" });
+        continue;
+      }
+      seenRfcs.add(rfc);
+
+      const razonSocial = String(row.razonSocial || row.razonsocial || row.razon_social || row.nombre).trim();
+      const email = row.email ? String(row.email).trim() : null;
+      const telefono = row.telefono ? String(row.telefono).trim() : null;
+      const direccion = row.direccion ? String(row.direccion).trim() : null;
+      const regimenFiscal = row.regimenFiscal || row.regimenfiscal || row.regimen_fiscal
+        ? String(row.regimenFiscal || row.regimenfiscal || row.regimen_fiscal).trim()
+        : null;
+      const puntos = Number.parseFloat(row.puntos) || 0;
+      const exists = existingRfcs.has(rfc);
+
+      if (exists) {
+        if (updateExisting) {
+          await db.run(
+            `UPDATE clients
+             SET razon_social = $1, email = $2, telefono = $3, direccion = $4, regimen_fiscal = $5, puntos = $6, updated_at = NOW()::text
+             WHERE rfc = $7`,
+            [razonSocial, email, telefono, direccion, regimenFiscal, puntos, rfc]
+          );
+          updated.push(rfc);
+        }
+        continue;
+      }
+
+      const requestedCode = row.code ? String(row.code).trim() : "";
+      const code = requestedCode && !usedCodes.has(requestedCode)
+        ? requestedCode
+        : await getNextClientCode(db, usedCodes);
+      usedCodes.add(code);
+
+      await db.run(
+        `INSERT INTO clients (code, rfc, razon_social, email, telefono, direccion, regimen_fiscal, puntos, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()::text, NOW()::text)`,
+        [code, rfc, razonSocial, email, telefono, direccion, regimenFiscal, puntos]
+      );
+      created.push(rfc);
+      existingRfcs.add(rfc);
+    }
+
+    return c.json({
+      created: created.length,
+      updated: updated.length,
+      rejected: rejected.length,
+      errors: rejected,
+      createdRfcs: created,
+      updatedRfcs: updated,
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message || "Import failed" }, 500);
+  }
+});
+
 // ── Sales import ─────────────────────────────────────────────────────────
 
 type SaleTicket = {

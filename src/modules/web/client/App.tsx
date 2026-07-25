@@ -20,8 +20,17 @@ const PosView = lazy(() =>
 const ReportsView = lazy(() =>
   import("./components/reports/ReportsView").then((m) => ({ default: m.default }))
 );
+const KPIView = lazy(() =>
+  import("./components/reports/KPIView").then((m) => ({ default: m.default }))
+);
 const SettingsView = lazy(() =>
   import("./components/settings/SettingsView").then((m) => ({ default: m.SettingsView }))
+);
+const InventoryView = lazy(() =>
+  import("./components/inventory/InventoryView").then((m) => ({ default: m.InventoryView }))
+);
+const ClientsView = lazy(() =>
+  import("./components/clients/ClientsView").then((m) => ({ default: m.ClientsView }))
 );
 
 function useNeedsSetup() {
@@ -100,8 +109,15 @@ export function App() {
                         <Routes>
                           <Route path="/" element={<Navigate to="/pos" replace />} />
                           <Route path="/pos" element={<PosView />} />
+                          <Route path="/inventory" element={<InventoryView />} />
+                          <Route path="/clients" element={<ClientsView />} />
                           <Route path="/reports" element={<ReportsView />} />
+                          <Route path="/kpis" element={<KPIView />} />
                           <Route path="/settings" element={<SettingsView />} />
+                          <Route path="/settings/:section" element={<SettingsView />} />
+                          <Route path="/settings-:section" element={<SettingsView />} />
+                          <Route path="/settings-clients" element={<SettingsView />} />
+                          <Route path="/settings-client" element={<SettingsView />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Suspense>

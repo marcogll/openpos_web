@@ -8,7 +8,12 @@ import { clientRoutes } from "./routes/clients";
 import { configRoutes } from "./routes/config";
 import { reportRoutes } from "./routes/reports";
 import { importRoutes } from "./routes/import";
+import { inventoryRoutes } from "./routes/inventory";
 import { userRoutes } from "./routes/users";
+import { receiptsRoutes } from "./routes/receipts";
+import { telegramRoutes } from "./routes/telegram";
+import { kpisRoutes } from "./routes/kpis";
+import { initDb } from "./webDb";
 import { requireAuth, requireRole } from "./auth";
 import { readFileSync, existsSync, statSync } from "fs";
 import { resolve, dirname } from "path";
@@ -246,6 +251,34 @@ api.get("/", (c) => {
 
     <div class="section">
       <div class="section-header">
+        <div class="section-icon icon-reports">📈</div>
+        <h2>KPIs</h2>
+      </div>
+      <div class="endpoint">
+        <span class="method method-get">GET</span>
+        <div class="endpoint-info">
+          <div class="endpoint-path">/api/kpis</div>
+          <div class="endpoint-desc">Get key performance indicators. Only accessible to admins and managers.</div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <span class="method method-get">GET</span>
+        <div class="endpoint-info">
+          <div class="endpoint-path">/api/kpis/products</div>
+          <div class="endpoint-desc">Get product KPIs. Only accessible to admins and managers.</div>
+        </div>
+      </div>
+      <div class="endpoint">
+        <span class="method method-get">GET</span>
+        <div class="endpoint-info">
+          <div class="endpoint-path">/api/kpis/users</div>
+          <div class="endpoint-desc">Get user KPIs. Only accessible to admins and managers.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">
         <div class="section-icon icon-import">📥</div>
         <h2>Import</h2>
       </div>
@@ -269,6 +302,7 @@ api.get("/", (c) => {
 });
 
 api.route("/auth", authRoutes);
+api.route("/telegram", telegramRoutes);
 api.use("/users", requireRole("admin"));
 api.use("/users/*", requireRole("admin"));
 api.use("/import", requireRole("admin"));
@@ -279,7 +313,10 @@ api.route("/clients", clientRoutes);
 api.route("/users", userRoutes);
 api.route("/config", configRoutes);
 api.route("/reports", reportRoutes);
+api.route("/inventory", inventoryRoutes);
 api.route("/import", importRoutes);
+api.route("/receipts", receiptsRoutes);
+api.route("/kpis", kpisRoutes);
 app.route("/api", api);
 
 // ── Static files (SPA fallback) ─────────────────────────────────────────────
@@ -337,7 +374,9 @@ app.get("/*", (c) => {
 
 const port = Number(process.env.PORT) || 3001;
 
-export function createWebServer() {
+export async function createWebServer() {
+  await initDb();
+
   Bun.serve({
     fetch: app.fetch,
     port,
@@ -348,10 +387,13 @@ export function createWebServer() {
   console.log(`  ➜ Dist:  ${DIST_DIR}\n`);
 }
 
-export default app;
+export { app };
 
 // Auto-start when run directly (not when imported)
 const isMainModule = import.meta.main;
 if (isMainModule) {
-  createWebServer();
+  createWebServer().catch((err) => {
+    console.error("Failed to start web server:", err);
+    process.exit(1);
+  });
 }

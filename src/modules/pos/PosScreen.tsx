@@ -330,13 +330,13 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
   const isGridActive    = activePanel === "grid";
   const isTicketActive  = activePanel === "ticket";
 
-  const msgColor = lastMsg.startsWith("v") ? theme.green
-                 : lastMsg.startsWith("x") ? theme.red
-                 : theme.textMuted;
+    const msgColor = lastMsg.startsWith("v") ? theme.greenBr
+                   : lastMsg.startsWith("x") ? theme.redBr
+                   : theme.textMuted;
 
-  // ── PayModal positioning — centered in the grid panel ────────────────────
-  const payModalLeft = Math.max(0, Math.floor((gridW - 42) / 2));
-  const payModalTop  = headerH + searchH + Math.floor((mainH - 30) / 2);
+  // ── Enhanced visual positioning for modals ──────────────────────────────
+  const payModalLeft = Math.max(0, Math.floor((gridW - 44) / 2));
+  const payModalTop  = headerH + searchH + Math.floor((mainH - 32) / 2);
 
   // ── Too small guard ───────────────────────────────────────────────────────
   if (layout.tooSmall) return <TooSmallOverlay layout={layout} />;
@@ -348,32 +348,48 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
       <BgBox variant="header" flexDirection="row" width={cols} paddingX={1}>
         <Box justifyContent="space-between" width={cols - 2}>
 
-          {/* Left: system name + user */}
-          <Box flexDirection="row" gap={1}>
-            <Text color={theme.bg} bold>▸ OpenPos</Text>
-            <Text color={theme.bg} dimColor>│</Text>
-            <Text color={theme.bg}>{user?.name || "Cajero"}</Text>
+          {/* System branding with enhanced visual hierarchy */}
+          <Box flexDirection="row" gap={2} alignItems="center">
+            <Box paddingX={1} paddingY={0.5} backgroundColor={theme.bgHover} borderStyle="round" borderColor={theme.accent1}>
+              <Text color={theme.white} bold>▸ OpenPos</Text>
+            </Box>
+            <Text color={theme.textMuted}>│</Text>
+            <Box paddingX={1} paddingY={0.5} backgroundColor={theme.accent3}>
+              <Text color={theme.white} bold>{user?.name || "Cajero"}</Text>
+            </Box>
           </Box>
 
-          {/* Center: ticket + items — hide detail on compact terminals */}
-          <Box flexDirection="row" gap={2}>
-            <Text color={theme.bg} bold>{fmt.ticket(ticketNum)}</Text>
+          {/* Ticket and items with enhanced visual separation */}
+          <Box flexDirection="row" gap={2} alignItems="center">
+            <Box paddingX={1} paddingY={0.5} backgroundColor={theme.bgHover} borderColor={theme.accent1} borderStyle="round">
+              <Text color={theme.white} bold>{fmt.ticket(ticketNum)}</Text>
+            </Box>
             {itemCount > 0 && (
               <>
-                <Text color={theme.bg} dimColor>·</Text>
-                <Text color={theme.bg}>{itemCount} {itemCount === 1 ? "item" : "items"}</Text>
+                <Text color={theme.textMuted}>│</Text>
+                <Box paddingX={1} paddingY={0.5} backgroundColor={theme.accent1}>
+                  <Text color={theme.white} bold>
+                    {itemCount} {itemCount === 1 ? "item" : "items"}
+                  </Text>
+                </Box>
                 {layout.widthTier !== "compact" && (
                   <>
-                    <Text color={theme.bg} dimColor>·</Text>
-                    <Text color={theme.bg} bold>{fmt.money(totalAmount)}</Text>
+                    <Text color={theme.textMuted}>│</Text>
+                    <Box paddingX={1} paddingY={0.5} backgroundColor={theme.bgHover} borderStyle="round">
+                      <Text color={theme.white} bold>
+                        {fmt.money(totalAmount)}
+                      </Text>
+                    </Box>
                   </>
                 )}
               </>
             )}
           </Box>
 
-          {/* Right: time */}
-          <Text color={theme.bg}>{time}</Text>
+          {/* Time with enhanced visual style */}
+          <Box paddingX={1} paddingY={0.5} backgroundColor={theme.bgSection} borderStyle="round">
+            <Text color={theme.textSec} bold>{time}</Text>
+          </Box>
         </Box>
       </BgBox>
 

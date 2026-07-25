@@ -1,5 +1,5 @@
 node_modules/
-bun.lock
+**/node_modules/
 .git/
 .gitignore
 pos.db

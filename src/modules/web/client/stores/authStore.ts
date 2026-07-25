@@ -4,7 +4,7 @@ type User = {
   id: number;
   username: string;
   name: string;
-  role: "admin" | "cashier";
+  role: "owner-admin" | "admin" | "cashier";
 };
 
 type AuthStore = {

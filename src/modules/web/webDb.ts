@@ -297,7 +297,7 @@ function camelToSnake(str: string): string {
 }
 
 class PgDb {
-  async prepare(sql: string) {
+  prepare(sql: string) {
     return new PgQuery(this, sql);
   }
 
@@ -306,10 +306,10 @@ class PgDb {
   }
 
   async transaction<T>(fn: () => T | Promise<T>): Promise<T> {
-    return getSql().begin(async (tx) => {
+    return getSql().begin(async (_tx) => {
       // Override getSql for the duration of the transaction
-      return fn();
-    });
+      return await fn();
+    }) as Promise<T>;
   }
 
   select(fields?: any) {
@@ -416,6 +416,32 @@ export const schema = {
     createdAt: "created_at",
     updatedAt: "updated_at",
   },
+  inventoryMovements: {
+    _: { name: "inventory_movements" },
+    id: "id",
+    productId: "product_id",
+    productSku: "product_sku",
+    type: "type",
+    quantity: "quantity",
+    previousStock: "previous_stock",
+    newStock: "new_stock",
+    cost: "cost",
+    note: "note",
+    createdBy: "created_by",
+    createdAt: "created_at",
+  },
+  receipts: {
+    _: { name: "receipts" },
+    id: "id",
+    saleTicket: "sale_ticket",
+    deliveryMethod: "delivery_method",
+    logoUrl: "logo_url",
+    webhookUrl: "webhook_url",
+    webhookStatus: "webhook_status",
+    webhookResponse: "webhook_response",
+    payload: "payload",
+    createdAt: "created_at",
+  },
 };
 
 // ── SQL tagged template helper ────────────────────────────────────────────
@@ -463,6 +489,13 @@ export const CONFIG_KEYS = {
   BILLING_PROVIDER: "billingProvider",
   BILLING_SANDBOX: "billingSandbox",
   TERMS_ACCEPTED: "termsAccepted",
+  STORE_LOGO_URL: "storeLogoUrl",
+  WEBHOOK_RECEIPT_URL: "webhookReceiptUrl",
+  TAB_TITLE: "tabTitle",
+  FAVICON_SOURCE: "faviconSource",
+  FAVICON_URL: "faviconUrl",
+  TELEGRAM_BOT_TOKEN: "telegramBotToken",
+  TELEGRAM_WEBHOOK_SECRET: "telegramWebhookSecret",
 } as const;
 
 export async function getConfig(key: string): Promise<string | null> {
@@ -632,6 +665,7 @@ async function initTables() {
       id         SERIAL PRIMARY KEY,
       username   TEXT NOT NULL UNIQUE,
       name       TEXT NOT NULL,
+      email      TEXT,
       pin        TEXT NOT NULL,
       role       TEXT NOT NULL DEFAULT 'cashier',
       active     INTEGER DEFAULT 1,
@@ -639,6 +673,7 @@ async function initTables() {
       updated_at TEXT DEFAULT (NOW()::text)
     )
   `);
+  await s.unsafe(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`);
   await s.unsafe(`
     CREATE TABLE IF NOT EXISTS clients (
       id            SERIAL PRIMARY KEY,
@@ -654,6 +689,42 @@ async function initTables() {
       updated_at    TEXT DEFAULT (NOW()::text)
     )
   `);
+  await s.unsafe(`
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+      id              SERIAL PRIMARY KEY,
+      product_id      INTEGER NOT NULL REFERENCES products(id),
+      product_sku     TEXT NOT NULL,
+      type            TEXT NOT NULL,
+      quantity        DOUBLE PRECISION NOT NULL,
+      previous_stock  DOUBLE PRECISION NOT NULL,
+      new_stock       DOUBLE PRECISION NOT NULL,
+      cost            DOUBLE PRECISION,
+      note            TEXT,
+      created_by      TEXT DEFAULT 'admin',
+      created_at      TEXT DEFAULT (NOW()::text)
+    )
+  `);
+  try {
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_inv_mov_product ON inventory_movements(product_id)`);
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_inv_mov_type ON inventory_movements(type)`);
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_inv_mov_date ON inventory_movements(created_at)`);
+  } catch {}
+  await s.unsafe(`
+    CREATE TABLE IF NOT EXISTS receipts (
+      id              SERIAL PRIMARY KEY,
+      sale_ticket     TEXT NOT NULL,
+      delivery_method TEXT NOT NULL,
+      logo_url        TEXT,
+      webhook_url     TEXT,
+      webhook_status  TEXT DEFAULT 'pending',
+      webhook_response TEXT,
+      payload         TEXT,
+      created_at      TEXT DEFAULT (NOW()::text)
+    )
+  `);
+  try {
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_receipts_ticket ON receipts(sale_ticket)`);
+  } catch {}
   await initDefaultConfig();
 }
 
@@ -678,6 +749,13 @@ async function initDefaultConfig() {
     [CONFIG_KEYS.RECEIPT_DEFAULT_DELIVERY]: "printed",
     [CONFIG_KEYS.BILLING_PROVIDER]: "facturapi",
     [CONFIG_KEYS.BILLING_SANDBOX]: "true",
+    [CONFIG_KEYS.STORE_LOGO_URL]: "https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/vanity/logo_vanity_simplificado.svg",
+    [CONFIG_KEYS.WEBHOOK_RECEIPT_URL]: "",
+    [CONFIG_KEYS.TAB_TITLE]: "",
+    [CONFIG_KEYS.FAVICON_SOURCE]: "favicon",
+    [CONFIG_KEYS.FAVICON_URL]: "/favicon.svg",
+    [CONFIG_KEYS.TELEGRAM_BOT_TOKEN]: "",
+    [CONFIG_KEYS.TELEGRAM_WEBHOOK_SECRET]: "",
   };
   for (const [key, defaultValue] of Object.entries(defaults)) {
     const existing = await getConfig(key);
@@ -692,6 +770,137 @@ export async function initDb() {
     await initTables();
     _initialized = true;
   }
+}
+
+// ── Inventory helpers ───────────────────────────────────────────────────
+
+export async function getLowStockProducts(): Promise<any[]> {
+  try {
+    return await dbInstance.all(
+      `SELECT * FROM products WHERE active = 1 AND stock <= min_stock ORDER BY (stock / NULLIF(min_stock, 0)) ASC, name ASC`
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function getInventoryMovements(opts: {
+  productId?: number;
+  type?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<{ items: any[]; total: number }> {
+  const conditions: string[] = [];
+  const params: any[] = [];
+  let idx = 1;
+
+  if (opts.productId) {
+    conditions.push(`im.product_id = $${idx++}`);
+    params.push(opts.productId);
+  }
+  if (opts.type) {
+    conditions.push(`im.type = $${idx++}`);
+    params.push(opts.type);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = opts.limit || 50;
+  const offset = opts.offset || 0;
+
+  const countRow = await dbInstance.get(
+    `SELECT COUNT(*)::int as count FROM inventory_movements im ${where}`,
+    params
+  ) as any;
+
+  const items = await dbInstance.all(
+    `SELECT im.*, p.name as product_name FROM inventory_movements im
+     LEFT JOIN products p ON p.id = im.product_id
+     ${where}
+     ORDER BY im.created_at DESC
+     LIMIT $${idx++} OFFSET $${idx++}`,
+    [...params, limit, offset]
+  );
+
+  return { items, total: countRow?.count || 0 };
+}
+
+export async function getInventoryDashboard(): Promise<{
+  kpis: {
+    totalProducts: number;
+    totalStockValue: number;
+    outOfStock: number;
+    belowMinimum: number;
+    healthyStock: number;
+    excessStock: number;
+    movementsWeek: number;
+  };
+  kanban: {
+    out: any[];
+    low: any[];
+    ok: any[];
+    excess: any[];
+  };
+  categories: { category: string; count: number; totalStock: number }[];
+}> {
+  const s = getSql();
+
+  const products = await s.unsafe(
+    `SELECT id, sku, name, price, cost, category, stock, min_stock, unit_type, active
+     FROM products WHERE active = 1 ORDER BY name ASC`
+  ) as any[];
+
+  const movementsWeek = await s.unsafe(
+    `SELECT COUNT(*)::int as count FROM inventory_movements
+     WHERE created_at >= (NOW() - interval '7 days')::text`
+  ) as any[];
+
+  const totalProducts = products.length;
+  const totalStockValue = products.reduce((sum: number, p: any) => sum + (Number(p.stock) * Number(p.cost || 0)), 0);
+  const outOfStock = products.filter((p: any) => Number(p.stock) === 0);
+  const belowMinimum = products.filter((p: any) => {
+    const s = Number(p.stock);
+    const m = Number(p.min_stock);
+    return s > 0 && s <= m;
+  });
+  const excessStock = products.filter((p: any) => {
+    const s = Number(p.stock);
+    const m = Number(p.min_stock);
+    return m > 0 && s > m * 3;
+  });
+  const healthyStock = products.filter((p: any) => {
+    const s = Number(p.stock);
+    const m = Number(p.min_stock);
+    return s > m && !(m > 0 && s > m * 3);
+  });
+
+  const catMap = new Map<string, { count: number; totalStock: number }>();
+  for (const p of products) {
+    const cat = p.category || "GEN";
+    const prev = catMap.get(cat) || { count: 0, totalStock: 0 };
+    catMap.set(cat, { count: prev.count + 1, totalStock: prev.totalStock + Number(p.stock) });
+  }
+  const categories = Array.from(catMap.entries())
+    .map(([category, data]) => ({ category, ...data }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    kpis: {
+      totalProducts,
+      totalStockValue,
+      outOfStock: outOfStock.length,
+      belowMinimum: belowMinimum.length,
+      healthyStock: healthyStock.length,
+      excessStock: excessStock.length,
+      movementsWeek: movementsWeek[0]?.count ?? 0,
+    },
+    kanban: {
+      out: outOfStock,
+      low: belowMinimum,
+      ok: healthyStock,
+      excess: excessStock,
+    },
+    categories,
+  };
 }
 
 export function getRawDb() {

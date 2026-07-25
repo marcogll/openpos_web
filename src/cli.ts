@@ -475,7 +475,7 @@ export async function runCLI(): Promise<boolean> {
     console.log("   http://localhost:3001\n");
     try {
       const { createWebServer } = await import("./modules/web/server.js");
-      createWebServer();
+      await createWebServer();
       return true;
     } catch (err) {
       logger.error("Web server failed", { error: String(err), stack: err instanceof Error ? err.stack : undefined });
@@ -492,7 +492,7 @@ export async function runCLI(): Promise<boolean> {
     console.log("   Vite: http://localhost:5173\n");
     try {
       const { createWebServer } = await import("./modules/web/server.js");
-      createWebServer();
+      await createWebServer();
       return true;
     } catch (err) {
       logger.error("Web dev server failed", { error: String(err), stack: err instanceof Error ? err.stack : undefined });

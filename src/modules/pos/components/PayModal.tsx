@@ -26,10 +26,10 @@ const USO_CFDI_OPTIONS = [
 const PAY_METHODS: Method[] = ["efectivo", "tarjeta", "transf.", "qr/codi"];
 
 const METHOD_COLOR: Record<string, string> = {
-  efectivo:  theme.green,
+  efectivo:  theme.greenBr,
   tarjeta:   theme.blue,
   "transf.": theme.cyan,
-  "qr/codi": theme.amber,
+  "qr/codi": theme.amberBr,
 };
 const METHOD_ICON: Record<string, string> = {
   efectivo:  "◆",

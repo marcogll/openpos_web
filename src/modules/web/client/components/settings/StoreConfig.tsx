@@ -1,5 +1,6 @@
 import React from "react";
-import { Save, Building2 } from "lucide-react";
+import { Save, Building2, Receipt } from "lucide-react";
+import { applyBrandingFromConfig } from "../../branding";
 import { useUIStore } from "../../stores/uiStore";
 
 type Config = {
@@ -10,6 +11,8 @@ type Config = {
   storeEmail: string;
   storePhone: string;
   storeRegimen: string;
+  storeLogoUrl: string;
+  webhookReceiptUrl: string;
 };
 
 const EMPTY: Config = {
@@ -20,6 +23,8 @@ const EMPTY: Config = {
   storeEmail: "",
   storePhone: "",
   storeRegimen: "",
+  storeLogoUrl: "",
+  webhookReceiptUrl: "",
 };
 
 export function StoreConfig() {
@@ -40,6 +45,8 @@ export function StoreConfig() {
           storeEmail: data.storeEmail || "",
           storePhone: data.storePhone || "",
           storeRegimen: data.storeRegimen || "",
+          storeLogoUrl: data.storeLogoUrl || "",
+          webhookReceiptUrl: data.webhookReceiptUrl || "",
         });
       })
       .catch(() => addToast("Error al cargar configuración", "error"))
@@ -59,6 +66,7 @@ export function StoreConfig() {
         body: JSON.stringify(config),
       });
       if (res.ok) {
+        void applyBrandingFromConfig();
         addToast("Configuración guardada", "success");
       } else {
         addToast("Error al guardar", "error");
@@ -134,6 +142,29 @@ export function StoreConfig() {
             onChange={(v) => set("storeRegimen", v)}
             placeholder="601 - General de Ley Personas Morales"
           />
+        </div>
+
+        <div className="border-t border-bg-active pt-5 mt-2">
+          <div className="flex items-center gap-2 mb-4">
+            <Receipt className="w-4 h-4 text-peach" />
+            <h4 className="text-sm font-bold text-text-primary">Comprobante Digital</h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <Field
+              label="URL del Logo (SVG/PNG)"
+              value={config.storeLogoUrl}
+              onChange={(v) => set("storeLogoUrl", v)}
+              placeholder="https://..."
+              className="md:col-span-2"
+            />
+            <Field
+              label="Webhook n8n (URL del workflow)"
+              value={config.webhookReceiptUrl}
+              onChange={(v) => set("webhookReceiptUrl", v)}
+              placeholder="https://tu-n8n.com/webhook/..."
+              className="md:col-span-2"
+            />
+          </div>
         </div>
 
         <div className="flex justify-end pt-2">

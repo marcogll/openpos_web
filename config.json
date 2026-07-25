@@ -1,9 +1,9 @@
 {
   "printer": {
-    "type": "Windows Printer",
-    "interface": "printer:POS-80",
-    "width": 48,
-    "characterSet": "PC437"
+    "type": "CUPS",
+    "interface": "TICKETS",
+    "width": 58,
+    "characterSet": "PC850"
   },
   "options": {
     "printCopies": 1,

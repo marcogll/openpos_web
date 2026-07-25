@@ -15,20 +15,23 @@ type UserData = {
   id: number;
   username: string;
   name: string;
-  role: "admin" | "cashier";
+  email?: string;
+  role: "owner-admin" | "admin" | "cashier";
   pinSet: boolean;
 };
 
 type UserForm = {
   username: string;
   name: string;
+  email: string;
   pin: string;
-  role: "admin" | "cashier";
+  role: "owner-admin" | "admin" | "cashier";
 };
 
 const EMPTY_FORM: UserForm = {
   username: "",
   name: "",
+  email: "",
   pin: "",
   role: "cashier",
 };
@@ -63,7 +66,7 @@ export function UserConfig() {
 
   const openEdit = (u: UserData) => {
     setEditing(u);
-    setForm({ username: u.username, name: u.name, pin: "", role: u.role });
+    setForm({ username: u.username, name: u.name, email: u.email || "", pin: "", role: u.role });
     setShowForm(true);
   };
 
@@ -142,6 +145,7 @@ export function UserConfig() {
               <tr className="border-b border-bg-active text-text-dim text-xs uppercase tracking-wider">
                 <th className="text-left px-6 py-3 font-medium">Usuario</th>
                 <th className="text-left px-6 py-3 font-medium">Nombre</th>
+                <th className="text-left px-6 py-3 font-medium">Email</th>
                 <th className="text-left px-6 py-3 font-medium">PIN</th>
                 <th className="text-left px-6 py-3 font-medium">Rol</th>
                 <th className="text-right px-6 py-3 font-medium">Acciones</th>
@@ -157,23 +161,24 @@ export function UserConfig() {
                     {u.username}
                   </td>
                   <td className="px-6 py-3 text-text-secondary">{u.name}</td>
+                  <td className="px-6 py-3 text-text-secondary">{u.email || "—"}</td>
                   <td className="px-6 py-3 font-mono text-text-muted text-xs">
                     {u.pinSet ? "Configurado" : "Sin PIN"}
                   </td>
                   <td className="px-6 py-3">
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                        u.role === "admin"
+                        u.role === "owner-admin" || u.role === "admin"
                           ? "bg-purple/10 text-purple"
                           : "bg-blue/10 text-blue"
                       }`}
                     >
-                      {u.role === "admin" ? (
+                      {u.role === "owner-admin" || u.role === "admin" ? (
                         <Shield className="w-3 h-3" />
                       ) : (
                         <User className="w-3 h-3" />
                       )}
-                      {u.role === "admin" ? "Administrador" : "Cajero"}
+                      {u.role === "owner-admin" ? "Owner admin" : u.role === "admin" ? "Administrador" : "Cajero"}
                     </span>
                   </td>
                   <td className="px-6 py-3 text-right">
@@ -198,7 +203,7 @@ export function UserConfig() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-text-dim">
+                  <td colSpan={6} className="px-6 py-12 text-center text-text-dim">
                     No hay usuarios registrados
                   </td>
                 </tr>
@@ -251,6 +256,19 @@ export function UserConfig() {
 
               <div>
                 <label className="block text-xs font-medium text-text-dim mb-1.5 uppercase tracking-wider">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  placeholder="correo@dominio.com"
+                  className="w-full h-10 px-3 rounded-lg bg-bg border border-bg-active text-sm text-text-secondary placeholder:text-text-dim focus:border-mauve/50 focus:ring-1 focus:ring-mauve/20 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-dim mb-1.5 uppercase tracking-wider">
                   PIN
                 </label>
                 <input
@@ -267,7 +285,7 @@ export function UserConfig() {
                 <label className="block text-xs font-medium text-text-dim mb-1.5 uppercase tracking-wider">
                   Rol
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => set("role", "cashier")}
@@ -291,6 +309,18 @@ export function UserConfig() {
                   >
                     <Shield className="w-4 h-4" />
                     Administrador
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set("role", "owner-admin")}
+                    className={`flex items-center justify-center gap-2 h-10 rounded-lg border text-sm font-medium transition-all ${
+                      form.role === "owner-admin"
+                        ? "border-purple/50 bg-purple/10 text-purple"
+                        : "border-bg-active text-text-muted hover:bg-bg-active"
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Owner
                   </button>
                 </div>
               </div>

@@ -46,7 +46,7 @@ const isServiceProduct = (product: ProductRow) =>
   product.category?.toUpperCase() === SERVICE_CATEGORY ||
   product.unit_type?.toLowerCase() === SERVICE_UNIT_TYPE;
 
-const getNextTicket = async (sql: ReturnType<typeof getSql>) => {
+const getNextTicket = async (sql: ReturnType<typeof getSql> | any) => {
   const rows = await sql`SELECT value FROM config WHERE key = 'lastTicketNum'`;
   const row = rows[0] as { value?: string } | undefined;
   const current = Number.parseInt(row?.value || "1", 10);
@@ -150,11 +150,16 @@ salesRoutes.post("/", async (c) => {
       }
     }
 
+    const normalizedItems = (items as SaleItemInput[]).map((item) => ({
+      sku: String(item.sku),
+      qty: Number(item.qty),
+    }));
+
     const result = await sql.begin(async (tx) => {
       let subtotal = 0;
       const saleItems: SaleItem[] = [];
 
-      for (const item of items as SaleItemInput[]) {
+      for (const item of normalizedItems) {
         const rows = await tx`SELECT sku, name, price, stock, category, unit_type FROM products WHERE sku = ${item.sku} AND active = 1`;
         const product = rows[0] as ProductRow | undefined;
 
@@ -162,7 +167,7 @@ salesRoutes.post("/", async (c) => {
           return { status: 404 as const, error: `Product ${item.sku} not found` };
         }
 
-        const qty = Number(item.qty);
+        const qty = item.qty;
         const service = isServiceProduct(product);
         if (!service && product.stock < qty) {
           return { status: 400 as const, error: `Insufficient stock for ${product.name}` };

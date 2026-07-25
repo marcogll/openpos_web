@@ -3,18 +3,24 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
   BarChart3,
+  Gauge,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
   Scissors,
+  Package,
+  UsersRound,
 } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { useAuthStore } from "../../stores/authStore";
 
 const NAV_ITEMS = [
   { to: "/pos", icon: ShoppingCart, label: "Punto de Venta" },
+  { to: "/inventory", icon: Package, label: "Inventario" },
+  { to: "/clients", icon: UsersRound, label: "Clientes" },
   { to: "/reports", icon: BarChart3, label: "Reportes" },
+  { to: "/kpis", icon: Gauge, label: "KPIs" },
   { to: "/settings", icon: Settings, label: "Configuración" },
 ];
 

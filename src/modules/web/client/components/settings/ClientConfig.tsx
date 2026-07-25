@@ -12,6 +12,7 @@ import { useUIStore } from "../../stores/uiStore";
 
 type Client = {
   id: number;
+  code?: string;
   rfc: string;
   razonSocial: string;
   email: string;
@@ -31,6 +32,17 @@ const EMPTY_FORM: ClientForm = {
   regimenFiscal: "",
 };
 
+const normalizeClient = (client: any): Client => ({
+  id: Number(client.id ?? 0),
+  code: client.code || "",
+  rfc: client.rfc || "",
+  razonSocial: client.razonSocial || client.razon_social || "",
+  email: client.email || "",
+  telefono: client.telefono || "",
+  direccion: client.direccion || "",
+  regimenFiscal: client.regimenFiscal || client.regimen_fiscal || "",
+});
+
 export function ClientConfig() {
   const addToast = useUIStore((s) => s.addToast);
   const [clients, setClients] = React.useState<Client[]>([]);
@@ -45,7 +57,10 @@ export function ClientConfig() {
   const fetchClients = () => {
     fetch("/api/clients")
       .then((r) => r.json())
-      .then((data) => setClients(data.items || data))
+      .then((data) => {
+        const list = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
+        setClients(list.map(normalizeClient));
+      })
       .catch(() => addToast("Error al cargar clientes", "error"))
       .finally(() => setLoading(false));
   };
@@ -55,10 +70,15 @@ export function ClientConfig() {
   }, []);
 
   const filtered = clients.filter(
-    (c) =>
-      c.razonSocial.toLowerCase().includes(search.toLowerCase()) ||
-      c.rfc.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase())
+    (c) => {
+      const term = search.toLowerCase();
+      return (
+        c.razonSocial.toLowerCase().includes(term) ||
+        c.rfc.toLowerCase().includes(term) ||
+        c.email.toLowerCase().includes(term) ||
+        c.code?.toLowerCase().includes(term)
+      );
+    }
   );
 
   const openAdd = () => {
@@ -84,7 +104,7 @@ export function ClientConfig() {
     setSaving(true);
     try {
       const method = editing ? "PUT" : "POST";
-      const url = editing ? `/api/clients/${editing.id}` : "/api/clients";
+      const url = editing ? `/api/clients/${editing.rfc}` : "/api/clients";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -106,7 +126,7 @@ export function ClientConfig() {
 
   const handleDelete = async (c: Client) => {
     try {
-      const res = await fetch(`/api/clients/${c.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/clients/${c.rfc}`, { method: "DELETE" });
       if (res.ok) {
         addToast("Cliente eliminado", "success");
         fetchClients();
