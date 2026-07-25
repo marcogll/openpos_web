@@ -168,7 +168,7 @@ export function renderVanityReceiptHtml(sale: ReceiptSale, store: ReceiptStore):
   <div class="receipt">
     <div class="brand">
       <img src="${escapeHtml(logoUrl)}" alt="Vanity">
-      <div class="tag">Nail Studio</div>
+      <div class="tag">Nails & SPA</div>
     </div>
     <div class="meta"><span>Fecha</span><span class="label">${escapeHtml(date.toLocaleDateString("es-MX"))} · ${escapeHtml(date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }))}</span></div>
     <div class="meta"><span>Cajero</span><span class="label">${escapeHtml(employee)}</span></div>

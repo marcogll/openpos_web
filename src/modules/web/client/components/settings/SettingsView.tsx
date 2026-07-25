@@ -782,7 +782,7 @@ async function downloadReceiptPng(receipt: ReceiptResponse, ticket: string) {
   ctx.fillText("Vanity", width / 2, 78);
   ctx.font = "600 18px Arial, sans-serif";
   ctx.fillStyle = "#8a6a3c";
-  ctx.fillText("NAIL STUDIO", width / 2, 112);
+  ctx.fillText("NAILS & SPA", width / 2, 112);
   ctx.strokeStyle = "#e4dcd3";
   ctx.beginPath();
   ctx.moveTo(80, 142);
