@@ -5,32 +5,32 @@
   --radius: 0.75rem;
 
   /* shadcn semantic tokens */
-  --color-background: #222434;
+  --color-background: #1e1e2e;
   --color-foreground: #CDD6F4;
   --color-card: #1E1E2E;
   --color-card-foreground: #CDD6F4;
   --color-popover: #1E1E2E;
   --color-popover-foreground: #CDD6F4;
   --color-primary: #89B4FA;
-  --color-primary-foreground: #222434;
+  --color-primary-foreground: #1e1e2e;
   --color-secondary: #B4BEFE;
-  --color-secondary-foreground: #222434;
+  --color-secondary-foreground: #1e1e2e;
   --color-muted: #313244;
   --color-muted-foreground: #A6ADC8;
   --color-accent: #45475A;
   --color-accent-foreground: #CDD6F4;
   --color-destructive: #F38BA8;
-  --color-destructive-foreground: #222434;
+  --color-destructive-foreground: #1e1e2e;
   --color-border: #45475A;
   --color-input: #181825;
   --color-ring: #89B4FA;
 
   /* App tokens */
-  --color-bg: #222434;
+  --color-bg: #1e1e2e;
   --color-bg-panel: #1E1E2E;
   --color-bg-section: #181825;
   --color-bg-active: #313244;
-  --color-bg-input: #222434;
+  --color-bg-input: #1e1e2e;
   --color-bg-dim: #45475A;
 
   /* Text */
@@ -90,16 +90,16 @@
   /* Button */
   --color-btn-primary-bg: #89B4FA;
   --color-btn-primary-hover: #74C7EC;
-  --color-btn-primary-text: #222434;
+  --color-btn-primary-text: #1e1e2e;
   --color-btn-success-bg: #A6E3A1;
   --color-btn-success-hover: #94E2D5;
-  --color-btn-success-text: #222434;
+  --color-btn-success-text: #1e1e2e;
   --color-btn-secondary-bg: #313244;
   --color-btn-secondary-hover: #45475A;
   --color-btn-secondary-text: #CDD6F4;
   --color-btn-danger-bg: #F38BA8;
   --color-btn-danger-hover: #EBA0AC;
-  --color-btn-danger-text: #222434;
+  --color-btn-danger-text: #1e1e2e;
 
   /* Chips */
   --color-chip-bg: transparent;
@@ -107,7 +107,7 @@
   --color-chip-text: #A6ADC8;
   --color-chip-active-bg: #89B4FA;
   --color-chip-active-border: #89B4FA;
-  --color-chip-active-text: #222434;
+  --color-chip-active-text: #1e1e2e;
 
   /* Ticket */
   --color-ticket-bg: #181825;
@@ -297,30 +297,30 @@
 
 /* ── Interface color schemes ──────────────────────────────────────────────── */
 .theme-dark.scheme-standard {
-  --color-background: #222434;
+  --color-background: #1e1e2e;
   --color-foreground: #CDD6F4;
   --color-card: #1E1E2E;
   --color-card-foreground: #CDD6F4;
   --color-popover: #1E1E2E;
   --color-popover-foreground: #CDD6F4;
   --color-primary: #89B4FA;
-  --color-primary-foreground: #222434;
+  --color-primary-foreground: #1e1e2e;
   --color-secondary: #B4BEFE;
-  --color-secondary-foreground: #222434;
+  --color-secondary-foreground: #1e1e2e;
   --color-muted: #313244;
   --color-muted-foreground: #A6ADC8;
   --color-accent: #45475A;
   --color-accent-foreground: #CDD6F4;
   --color-destructive: #F38BA8;
-  --color-destructive-foreground: #222434;
+  --color-destructive-foreground: #1e1e2e;
   --color-border: #45475A;
   --color-input: #181825;
   --color-ring: #89B4FA;
-  --color-bg: #222434;
+  --color-bg: #1e1e2e;
   --color-bg-panel: #1E1E2E;
   --color-bg-section: #181825;
   --color-bg-active: #313244;
-  --color-bg-input: #222434;
+  --color-bg-input: #1e1e2e;
   --color-bg-dim: #45475A;
   --color-text-primary: #CDD6F4;
   --color-text-secondary: #CDD6F4;
@@ -364,23 +364,23 @@
 
   --color-btn-primary-bg: #89B4FA;
   --color-btn-primary-hover: #74C7EC;
-  --color-btn-primary-text: #222434;
+  --color-btn-primary-text: #1e1e2e;
   --color-btn-success-bg: #A6E3A1;
   --color-btn-success-hover: #94E2D5;
-  --color-btn-success-text: #222434;
+  --color-btn-success-text: #1e1e2e;
   --color-btn-secondary-bg: #313244;
   --color-btn-secondary-hover: #45475A;
   --color-btn-secondary-text: #CDD6F4;
   --color-btn-danger-bg: #F38BA8;
   --color-btn-danger-hover: #EBA0AC;
-  --color-btn-danger-text: #222434;
+  --color-btn-danger-text: #1e1e2e;
 
   --color-chip-bg: transparent;
   --color-chip-border: #45475A;
   --color-chip-text: #A6ADC8;
   --color-chip-active-bg: #89B4FA;
   --color-chip-active-border: #89B4FA;
-  --color-chip-active-text: #222434;
+  --color-chip-active-text: #1e1e2e;
 
   --color-ticket-bg: #181825;
   --color-ticket-border: #313244;
