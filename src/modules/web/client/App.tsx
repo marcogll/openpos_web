@@ -26,6 +26,9 @@ const KPIView = lazy(() =>
 const SettingsView = lazy(() =>
   import("./components/settings/SettingsView").then((m) => ({ default: m.SettingsView }))
 );
+const ComprobantesView = lazy(() =>
+  import("./components/comprobantes/ComprobantesView").then((m) => ({ default: m.ComprobantesView }))
+);
 const InventoryView = lazy(() =>
   import("./components/inventory/InventoryView").then((m) => ({ default: m.InventoryView }))
 );
@@ -118,6 +121,7 @@ export function App() {
                           <Route path="/settings-:section" element={<SettingsView />} />
                           <Route path="/settings-clients" element={<SettingsView />} />
                           <Route path="/settings-client" element={<SettingsView />} />
+                          <Route path="/comprobantes" element={<ComprobantesView />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Suspense>

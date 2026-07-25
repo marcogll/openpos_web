@@ -14,6 +14,7 @@ import {
   Package,
   UsersRound,
   ReceiptText,
+  FileCheck,
 } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: "/inventory", icon: Package, label: "Inventario" },
   { to: "/clients", icon: UsersRound, label: "Clientes" },
   { to: "/settings/ventas", icon: ReceiptText, label: "Ventas" },
+  { to: "/comprobantes", icon: FileCheck, label: "Comprobantes" },
   { to: "/reports", icon: BarChart3, label: "Reportes" },
   { to: "/kpis", icon: Gauge, label: "KPIs" },
   { to: "/settings", icon: Settings, label: "Configuración" },
