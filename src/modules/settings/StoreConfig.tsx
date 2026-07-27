@@ -12,15 +12,30 @@ type StoreConfigProps = {
 export function StoreConfig({ onBack, isAdmin }: StoreConfigProps) {
 	const { cols, rows } = useTerminalSize();
 	const [field, setField] = React.useState(0);
-	const [values, setValues] = React.useState(() => ({
-		storeName: getConfig(CONFIG_KEYS.STORE_NAME) || "",
-		storeRfc: getConfig(CONFIG_KEYS.STORE_RFC) || "",
-		storeLegalName: getConfig(CONFIG_KEYS.STORE_LEGAL_NAME) || "",
-		storeAddress: getConfig(CONFIG_KEYS.STORE_ADDRESS) || "",
-		storeEmail: getConfig(CONFIG_KEYS.STORE_EMAIL) || "",
-		storePhone: getConfig(CONFIG_KEYS.STORE_PHONE) || "",
-		storeRegimen: getConfig(CONFIG_KEYS.STORE_REGIMEN) || "601",
-	}));
+	const [values, setValues] = React.useState({
+		storeName: "",
+		storeRfc: "",
+		storeLegalName: "",
+		storeAddress: "",
+		storeEmail: "",
+		storePhone: "",
+		storeRegimen: "601",
+	});
+
+	React.useEffect(() => {
+		(async () => {
+			const loaded = {
+				storeName: (await getConfig(CONFIG_KEYS.STORE_NAME)) || "",
+				storeRfc: (await getConfig(CONFIG_KEYS.STORE_RFC)) || "",
+				storeLegalName: (await getConfig(CONFIG_KEYS.STORE_LEGAL_NAME)) || "",
+				storeAddress: (await getConfig(CONFIG_KEYS.STORE_ADDRESS)) || "",
+				storeEmail: (await getConfig(CONFIG_KEYS.STORE_EMAIL)) || "",
+				storePhone: (await getConfig(CONFIG_KEYS.STORE_PHONE)) || "",
+				storeRegimen: (await getConfig(CONFIG_KEYS.STORE_REGIMEN)) || "601",
+			};
+			setValues(loaded);
+		})();
+	}, []);
 
 	const [saved, setSaved] = React.useState(false);
 	const [error, setError] = React.useState(false);
@@ -44,18 +59,20 @@ export function StoreConfig({ onBack, isAdmin }: StoreConfigProps) {
 		}
 		if (key.return) {
 			if (isAdmin) {
-				let allSaved = true;
-				Object.entries(values).forEach(([k, v]) => {
-					const ok = setConfig(k, v);
-					if (!ok) allSaved = false;
-				});
-				if (allSaved) {
-					setSaved(true);
-					setTimeout(() => setSaved(false), 2000);
-				} else {
-					setError(true);
-					setTimeout(() => setError(false), 2000);
-				}
+				(async () => {
+					let allSaved = true;
+					for (const [k, v] of Object.entries(values)) {
+						const ok = await setConfig(k, v);
+						if (!ok) allSaved = false;
+					}
+					if (allSaved) {
+						setSaved(true);
+						setTimeout(() => setSaved(false), 2000);
+					} else {
+						setError(true);
+						setTimeout(() => setError(false), 2000);
+					}
+				})();
 			}
 			return;
 		}

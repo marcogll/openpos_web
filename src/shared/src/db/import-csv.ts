@@ -1,7 +1,5 @@
 import { readFileSync } from "fs";
 import { db, initDb } from "./client.js";
-import { products } from "./schema.js";
-import { sql } from "drizzle-orm";
 
 const VALID_UNIT_TYPES = ["pza", "kg", "g", "lt", "ml", "m", "cm", "servicio"];
 
@@ -60,28 +58,18 @@ export async function runImport(filePath: string) {
       continue;
     }
 
-    const existing = db.select().from(products).where(sql`sku = ${row.sku}`).get();
+    const existing = await db.get("SELECT id FROM products WHERE sku = $1", [row.sku]);
     if (existing) {
       skipped++;
       console.log(`  ⏭️  ${row.sku} - ya existe`);
       continue;
     }
 
-    const normalized = {
-      barcode: row.barcode || null,
-      sku: row.sku,
-      name: row.name,
-      price: parseFloat(row.price) || 0,
-      cost: parseFloat(row.cost) || 0,
-      category: row.category || "GEN",
-      stock: parseFloat(row.stock) || 0,
-      minStock: parseFloat(row.minstock) || 5,
-      unitType: row.unittype || "pza",
-      unitQty: parseFloat(row.unitqty) || 1,
-      active: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const now = new Date().toISOString();
+    await db.run(
+      `INSERT INTO products (barcode, sku, name, price, cost, category, stock, min_stock, unit_type, unit_qty, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [row.barcode || null, row.sku, row.name, parseFloat(row.price) || 0, parseFloat(row.cost) || 0, row.category || "GEN", parseFloat(row.stock) || 0, parseFloat(row.minstock) || 5, row.unittype || "pza", parseFloat(row.unitqty) || 1, 1, now, now]
+    );
     inserted++;
     console.log(`  ✅ ${row.sku} - ${row.name}`);
   }

@@ -1,5 +1,4 @@
 import { db, initDb } from "./client.js";
-import { products } from "./schema.js";
 
 initDb();
 
@@ -64,9 +63,15 @@ const sample = [
   { barcode: "7508000100056", sku: "SER005", name: "Aplicación de Maquillaje",        price: 500, cost: 0, category: "SER", stock: 0, minStock: 0, unitType: "servicio", unitQty: 1 },
 ];
 
-export function runSeed() {
+export async function runSeed() {
   try {
-    db.insert(products).values(sample).run();
+    const now = new Date().toISOString();
+    for (const p of sample) {
+      await db.run(
+        `INSERT INTO products (barcode, sku, name, price, cost, category, stock, min_stock, unit_type, unit_qty, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [p.barcode, p.sku, p.name, p.price, p.cost, p.category, p.stock, p.minStock, p.unitType, p.unitQty, 1, now, now]
+      );
+    }
     console.log("Seed completado: " + sample.length + " productos insertados.");
   } catch {
     console.log("Seed ya aplicado o error — omitiendo.");

@@ -442,7 +442,46 @@ export const schema = {
     payload: "payload",
     createdAt: "created_at",
   },
+  auditLog: {
+    _: { name: "audit_log" },
+    id: "id",
+    entityType: "entity_type",
+    entityId: "entity_id",
+    action: "action",
+    changes: "changes",
+    performedBy: "performed_by",
+    ipAddress: "ip_address",
+    createdAt: "created_at",
+  },
 };
+
+// ── Audit log helper ──────────────────────────────────────────────────────
+
+export async function logAudit(params: {
+  entityType: string;
+  entityId: string;
+  action: string;
+  changes?: Record<string, unknown>;
+  performedBy?: string;
+  ipAddress?: string;
+}) {
+  try {
+    await dbInstance.run(
+      `INSERT INTO audit_log (entity_type, entity_id, action, changes, performed_by, ip_address, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW()::text)`,
+      [
+        params.entityType,
+        params.entityId,
+        params.action,
+        params.changes ? JSON.stringify(params.changes) : null,
+        params.performedBy || "system",
+        params.ipAddress || null,
+      ]
+    );
+  } catch (err) {
+    console.error("Error writing audit log:", err);
+  }
+}
 
 // ── SQL tagged template helper ────────────────────────────────────────────
 
@@ -735,6 +774,41 @@ async function initTables() {
   `);
   try {
     await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_receipts_ticket ON receipts(sale_ticket)`);
+  } catch {}
+  await s.unsafe(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id            SERIAL PRIMARY KEY,
+      entity_type   TEXT NOT NULL,
+      entity_id     TEXT NOT NULL,
+      action        TEXT NOT NULL,
+      changes       JSONB,
+      performed_by  TEXT NOT NULL DEFAULT 'system',
+      ip_address    TEXT,
+      created_at    TEXT DEFAULT (NOW()::text)
+    )
+  `);
+  try {
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id)`);
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_audit_date ON audit_log(created_at)`);
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_audit_performer ON audit_log(performed_by)`);
+  } catch {}
+  await s.unsafe(`
+    CREATE TABLE IF NOT EXISTS cash_movements (
+      id            SERIAL PRIMARY KEY,
+      type          TEXT NOT NULL,
+      amount        DOUBLE PRECISION NOT NULL,
+      method        TEXT,
+      reference     TEXT,
+      description   TEXT,
+      sale_id       INTEGER,
+      created_at    TEXT DEFAULT (NOW()::text),
+      created_by    TEXT NOT NULL DEFAULT 'system'
+    )
+  `);
+  try {
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_cash_date ON cash_movements(created_at)`);
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_cash_type ON cash_movements(type)`);
+    await s.unsafe(`CREATE INDEX IF NOT EXISTS idx_cash_sale ON cash_movements(sale_id)`);
   } catch {}
   await initDefaultConfig();
 }

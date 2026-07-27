@@ -71,9 +71,9 @@ export function ReportsScreen({ rows, cols, active, onClose }: Props) {
   const [printStatus, setPrintStatus] = React.useState<"idle" | "printing" | "done" | "error">("idle");
 
   // ── Carga de datos ─────────────────────────────────────────────────────────
-  const loadReport = React.useCallback(() => {
+  const loadReport = React.useCallback(async () => {
     const today    = new Date().toISOString().split("T")[0]!;
-    const allSales = db.select().from(sales).all();
+    const allSales = await db.all("SELECT * FROM sales") as Sale[];
 
     if (reportType === "day") {
       const daySales   = allSales.filter((s: Sale) => s.createdAt.startsWith(today) && s.status === "completed");

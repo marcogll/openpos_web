@@ -2,7 +2,6 @@ import React from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
 import { db, users, type User, BgBox, theme, hashPin } from "@openpos/shared";
-import { sql } from "drizzle-orm";
 import { useTerminalSize } from "./useTerminalSize";
 
 type UserConfigProps = {
@@ -37,8 +36,8 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 	const panelWidth = Math.min(70, cols - 10);
 	const listHeight = Math.max(8, rows - 12);
 
-	const loadUsers = React.useCallback(() => {
-		const result = db.select().from(users).where(sql`active = 1`).all();
+	const loadUsers = React.useCallback(async () => {
+		const result = await db.select().from(users).where("active = 1").all();
 		setUsersList(result as User[]);
 	}, []);
 
@@ -46,7 +45,7 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 		loadUsers();
 	}, [loadUsers]);
 
-	const handleSave = () => {
+	const handleSave = async () => {
 		if (!form.username || (view === "add" && !form.pin)) {
 			setMsg("❌ Username y PIN son obligatorios");
 			return;
@@ -58,40 +57,30 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 		}
 
 		if (view === "add") {
-			const existing = db.select().from(users).where(sql`username = ${form.username}`).get();
-			if (existing) {
+			const existingRow = await db.get("SELECT * FROM users WHERE username = $1", [form.username]);
+			if (existingRow) {
 				setMsg("❌ Ya existe un usuario con ese username");
 				return;
 			}
 
-			db.insert(users).values({
-				username: form.username,
-				name: form.name || form.username,
-				pin: hashPin(form.pin),
-				role: form.role || "cashier",
-				active: 1,
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			}).run();
+			const now = new Date().toISOString();
+			await db.run(
+				`INSERT INTO users (username, name, pin, role, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				[form.username, form.name || form.username, hashPin(form.pin), form.role || "cashier", 1, now, now]
+			);
 			setMsg("✅ Usuario agregado");
 		} else if (view === "edit" && editingId) {
+			const now = new Date().toISOString();
 			if (form.pin) {
-				db.run(sql`
-					UPDATE users SET
-						name = ${form.name || form.username},
-						pin = ${hashPin(form.pin)},
-						role = ${form.role},
-						updated_at = datetime('now')
-					WHERE id = ${editingId}
-				`);
+				await db.run(
+					`UPDATE users SET name = $1, pin = $2, role = $3, updated_at = $4 WHERE id = $5`,
+					[form.name || form.username, hashPin(form.pin), form.role, now, editingId]
+				);
 			} else {
-				db.run(sql`
-					UPDATE users SET
-						name = ${form.name || form.username},
-						role = ${form.role},
-						updated_at = datetime('now')
-					WHERE id = ${editingId}
-				`);
+				await db.run(
+					`UPDATE users SET name = $1, role = $2, updated_at = $3 WHERE id = $4`,
+					[form.name || form.username, form.role, now, editingId]
+				);
 			}
 			setMsg("✅ Usuario actualizado");
 		}
@@ -105,9 +94,9 @@ export function UserConfig({ onBack, isAdmin }: UserConfigProps) {
 		}, 1500);
 	};
 
-	const handleDelete = (id: number) => {
+	const handleDelete = async (id: number) => {
 		if (!isAdmin) return;
-		db.run(sql`UPDATE users SET active = 0 WHERE id = ${id}`);
+		await db.run("UPDATE users SET active = 0 WHERE id = $1", [id]);
 		setMsg("✅ Usuario eliminado");
 		setTimeout(() => {
 			setMsg("");

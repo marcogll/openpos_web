@@ -32,8 +32,23 @@ const ComprobantesView = lazy(() =>
 const InventoryView = lazy(() =>
   import("./components/inventory/InventoryView").then((m) => ({ default: m.InventoryView }))
 );
+const InventoryManagement = lazy(() =>
+  import("./components/inventory/InventoryManagement").then((m) => ({ default: m.InventoryManagement }))
+);
+const AuditLogView = lazy(() =>
+  import("./components/inventory/AuditLogView").then((m) => ({ default: m.AuditLogView }))
+);
 const ClientsView = lazy(() =>
   import("./components/clients/ClientsView").then((m) => ({ default: m.ClientsView }))
+);
+const SalesLogView = lazy(() =>
+  import("./components/cash/SalesLogView").then((m) => ({ default: m.SalesLogView }))
+);
+const CashRegisterView = lazy(() =>
+  import("./components/cash/CashRegisterView").then((m) => ({ default: m.CashRegisterView }))
+);
+const PaymentCutView = lazy(() =>
+  import("./components/cash/PaymentCutView").then((m) => ({ default: m.PaymentCutView }))
 );
 
 function useNeedsSetup() {
@@ -113,6 +128,8 @@ export function App() {
                           <Route path="/" element={<Navigate to="/pos" replace />} />
                           <Route path="/pos" element={<PosView />} />
                           <Route path="/inventory" element={<InventoryView />} />
+                          <Route path="/inventory/management" element={<InventoryManagement />} />
+                          <Route path="/inventory/audit" element={<AuditLogView />} />
                           <Route path="/clients" element={<ClientsView />} />
                           <Route path="/reports" element={<ReportsView />} />
                           <Route path="/kpis" element={<KPIView />} />
@@ -121,6 +138,9 @@ export function App() {
                           <Route path="/settings-:section" element={<SettingsView />} />
                           <Route path="/settings-clients" element={<SettingsView />} />
                           <Route path="/settings-client" element={<SettingsView />} />
+                          <Route path="/cash/sales" element={<SalesLogView />} />
+                          <Route path="/cash/register" element={<CashRegisterView />} />
+                          <Route path="/cash/cuts" element={<PaymentCutView />} />
                           <Route path="/comprobantes" element={<ComprobantesView />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>

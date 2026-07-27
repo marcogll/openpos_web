@@ -2,7 +2,6 @@ import React from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
 import { db, sales, type Sale, BgBox, theme } from "@openpos/shared";
-import { sql } from "drizzle-orm";
 import { useTerminalSize } from "./useTerminalSize";
 
 type SalesConfigProps = {
@@ -33,8 +32,8 @@ export function SalesConfig({ onBack }: SalesConfigProps) {
 	const panelWidth = Math.min(80, cols - 6);
 	const listHeight = Math.max(10, rows - 14);
 
-	const loadSales = React.useCallback(() => {
-		let result = db.select().from(sales).orderBy(sql`created_at DESC`).all() as Sale[];
+	const loadSales = React.useCallback(async () => {
+		let result = await db.all("SELECT * FROM sales ORDER BY created_at DESC") as Sale[];
 		
 		if (filter.method !== "TODOS") {
 			result = result.filter((s) => s.method === filter.method);

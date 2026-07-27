@@ -1,67 +1,45 @@
 import { db } from "./client.js";
-import { products, type Product } from "./schema.js";
-import { eq, like, or, sql } from "drizzle-orm";
+import type { Product } from "./schema.js";
 
 export interface PaginatedProducts {
   items: Product[];
   total: number;
 }
 
-export function searchProducts(
+export async function searchProducts(
   query: string,
   offset: number,
   limit: number
-): PaginatedProducts {
+): Promise<PaginatedProducts> {
   const normalizedQuery = query.trim().toLowerCase();
 
-  const items = normalizedQuery
-    ? db
-        .select()
-        .from(products)
-        .where(
-          or(
-            like(products.name, `${normalizedQuery}%`),
-            like(products.sku, `${normalizedQuery}%`),
-            like(products.barcode, `${normalizedQuery}%`)
-          )
-        )
-        .orderBy(products.name)
-        .limit(limit)
-        .offset(offset)
-        .all()
-    : db
-        .select()
-        .from(products)
-        .orderBy(products.name)
-        .limit(limit)
-        .offset(offset)
-        .all();
+  if (normalizedQuery) {
+    const likePattern = `${normalizedQuery}%`;
+    const items = await db.all(
+      `SELECT * FROM products WHERE active = 1 AND (name ILIKE $1 OR sku ILIKE $1 OR barcode ILIKE $1) ORDER BY name ASC LIMIT $2 OFFSET $3`,
+      [likePattern, limit, offset]
+    );
+    const countRow = await db.get(
+      `SELECT COUNT(*)::int as count FROM products WHERE active = 1 AND (name ILIKE $1 OR sku ILIKE $1 OR barcode ILIKE $1)`,
+      [likePattern]
+    );
+    return { items, total: (countRow as any)?.count ?? 0 };
+  }
 
-  const totalCount = normalizedQuery
-    ? db
-        .select({ count: sql<number>`count(*)` })
-        .from(products)
-        .where(
-          or(
-            like(products.name, `${normalizedQuery}%`),
-            like(products.sku, `${normalizedQuery}%`),
-            like(products.barcode, `${normalizedQuery}%`)
-          )
-        )
-        .get()?.count ?? 0
-    : db
-        .select({ count: sql<number>`count(*)` })
-        .from(products)
-        .get()?.count ?? 0;
-
-  return { items, total: totalCount };
+  const items = await db.all(
+    `SELECT * FROM products WHERE active = 1 ORDER BY name ASC LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+  const countRow = await db.get(
+    `SELECT COUNT(*)::int as count FROM products WHERE active = 1`
+  );
+  return { items, total: (countRow as any)?.count ?? 0 };
 }
 
-export function findProductByCode(code: string): Product | undefined {
-  return db
-    .select()
-    .from(products)
-    .where(or(eq(products.barcode, code), eq(products.sku, code)))
-    .limit(1)
-    .get();
+export async function findProductByCode(code: string): Promise<Product | undefined> {
+  const row = await db.get(
+    `SELECT * FROM products WHERE active = 1 AND (barcode = $1 OR sku = $1) LIMIT 1`,
+    [code]
+  );
+  return row as Product | undefined;
 }

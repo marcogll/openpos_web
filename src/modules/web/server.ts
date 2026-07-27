@@ -13,6 +13,8 @@ import { userRoutes } from "./routes/users";
 import { receiptsRoutes } from "./routes/receipts";
 import { telegramRoutes } from "./routes/telegram";
 import { kpisRoutes } from "./routes/kpis";
+import { auditRoutes } from "./routes/audit";
+import { cashRoutes } from "./routes/cash";
 import { initDb } from "./webDb";
 import { requireAuth, requireRole } from "./auth";
 import { readFileSync, existsSync, statSync } from "fs";
@@ -317,6 +319,8 @@ api.route("/inventory", inventoryRoutes);
 api.route("/import", importRoutes);
 api.route("/receipts", receiptsRoutes);
 api.route("/kpis", kpisRoutes);
+api.route("/audit", auditRoutes);
+api.route("/cash", cashRoutes);
 app.route("/api", api);
 
 // ── Static files (SPA fallback) ─────────────────────────────────────────────

@@ -6,6 +6,7 @@ import {
   ClipboardList,
   PackagePlus,
   History,
+  ScrollText,
 } from "lucide-react";
 import { InventoryDashboard } from "./InventoryDashboard";
 import { LowStockAlert } from "./LowStockAlert";
@@ -13,8 +14,9 @@ import { StockAdjust } from "./StockAdjust";
 import { PhysicalCount } from "./PhysicalCount";
 import { MerchandiseEntry } from "./MerchandiseEntry";
 import { MovementHistory } from "./MovementHistory";
+import { AuditLogView } from "./AuditLogView";
 
-type Tab = "dashboard" | "low-stock" | "adjust" | "count" | "entry" | "history";
+type Tab = "dashboard" | "low-stock" | "adjust" | "count" | "entry" | "history" | "audit";
 
 const TAB_CLASSES: Record<Tab, { active: string; inactive: string; icon: React.ElementType; label: string }> = {
   dashboard: {
@@ -53,6 +55,12 @@ const TAB_CLASSES: Record<Tab, { active: string; inactive: string; icon: React.E
     icon: History,
     label: "Historial",
   },
+  audit: {
+    active: "bg-violet/15 text-violet ring-1 ring-violet/25",
+    inactive: "text-text-muted hover:text-text-secondary hover:bg-bg-active",
+    icon: ScrollText,
+    label: "Auditoría",
+  },
 };
 
 export function InventoryView() {
@@ -72,6 +80,8 @@ export function InventoryView() {
         return <MerchandiseEntry />;
       case "history":
         return <MovementHistory />;
+      case "audit":
+        return <AuditLogView />;
       default:
         return <InventoryDashboard />;
     }

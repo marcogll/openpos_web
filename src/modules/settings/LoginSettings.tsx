@@ -2,7 +2,6 @@ import React from "react";
 import { Text, useInput } from "ink";
 import { Box, Row, Col, BgBox, theme, Input, Divider } from "@openpos/shared";
 import { db, users, verifyPin } from "@openpos/shared";
-import { sql } from "drizzle-orm";
 import { useLayout, TooSmallOverlay } from "../../shared/useLayout";
 import { cachedBannerLines, cachedBannerCols, reloadBanner } from "../pos/LoadingScreen.js";
 
@@ -61,35 +60,37 @@ export function LoginSettings({ onLogin, onCancel }: LoginSettingsProps) {
         return;
       }
 
-      const dbUsers = db.select().from(users).where(sql`active = 1`).all();
-      const validUser = dbUsers.find(
-        (u: any) => u.username.toLowerCase() === username.toLowerCase() && verifyPin(u.pin, pin) && u.active === 1
-      );
+      (async () => {
+        const dbUsers = await db.select().from(users).where("active = 1").all();
+        const validUser = dbUsers.find(
+          (u: any) => u.username.toLowerCase() === username.toLowerCase() && verifyPin(u.pin, pin) && u.active === 1
+        );
 
-      if (!validUser) {
-        const next = attempts + 1;
-        setAttempts(next);
-        setUsername("");
-        setPin("");
-        setFocus("username");
-        if (next >= 3) {
-          setAttempts(0);
-          setError("Demasiados intentos. Limpiando...");
-        } else {
-          setError(`Credenciales incorrectas (${next}/3)`);
+        if (!validUser) {
+          const next = attempts + 1;
+          setAttempts(next);
+          setUsername("");
+          setPin("");
+          setFocus("username");
+          if (next >= 3) {
+            setAttempts(0);
+            setError("Demasiados intentos. Limpiando...");
+          } else {
+            setError(`Credenciales incorrectas (${next}/3)`);
+          }
+          return;
         }
-        return;
-      }
 
-      if (validUser.role !== "admin") {
-        setError("Se requiere acceso de administrador");
-        setUsername("");
-        setPin("");
-        setFocus("username");
-        return;
-      }
+        if (validUser.role !== "admin") {
+          setError("Se requiere acceso de administrador");
+          setUsername("");
+          setPin("");
+          setFocus("username");
+          return;
+        }
 
-      onLogin({ username: validUser.username, role: validUser.role });
+        onLogin({ username: validUser.username, role: validUser.role });
+      })();
       return;
     }
 

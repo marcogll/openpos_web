@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import TextInput from "ink-text-input";
-import { db, initDb, products as productsTable, sales, type Product, useWindowManager, eq, getOrCreateClient, type CreateClientData, searchProducts, findProductByCode } from "@openpos/shared";
+import { db, initDb, type Product, useWindowManager, getOrCreateClient, type CreateClientData, searchProducts, findProductByCode, logAudit } from "@openpos/shared";
 import { useCart, BgBox, theme, fmt, printTicket, type TicketData } from "@openpos/shared";
 
 const PAGE_SIZE = 50;
@@ -11,9 +11,11 @@ import { ProductGrid } from "./components/ProductGrid.js";
 import { Ticket } from "./components/Ticket.js";
 import { ReportsScreen } from "./ReportsScreen.js";
 import { PayModal, type Method, type InvoiceData } from "./components/PayModal.js";
+import { ProductConfig } from "../settings/ProductConfig.js";
+import { InventoryScreen } from "./InventoryScreen.js";
 import { billingService, logger } from "@openpos/shared";
 
-type PanelType = "search" | "grid" | "ticket" | "pay" | "reports";
+type PanelType = "search" | "grid" | "ticket" | "pay" | "reports" | "manage" | "inventory";
 
 export function PosScreen({ onLogout }: { onLogout?: () => void }) {
   const { exit }  = useApp();
@@ -88,30 +90,35 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
 
   // ── Input handling ────────────────────────────────────────────────────────
   useInput((input, key) => {
+    // Skip ALL global navigation when manage/products or inventory panel is active
+    if (activePanel === "manage" || activePanel === "inventory") return;
+
     // Skip ALL global navigation when any window is active (window handles its own keys)
     if (useWindowManager.getState().hasActiveWindow()) return;
 
     // Barcode scanner (numpad while grid is active)
     if (activePanel === "grid" && key.return && barcode.length >= 4) {
-      const qtyMatch = barcode.match(/^(\d+)[*\s](.+)$/);
-      const qty  = qtyMatch ? parseInt(qtyMatch[1]!) : 1;
-      const code = qtyMatch ? qtyMatch[2]!.trim() : barcode.trim();
-      const product = findProductByCode(code);
-      if (product) {
-        if (product.active === 0) {
-          setLastMsg(`x "${product.name}" esta inactivo`);
-        } else if (product.stock < qty) {
-          setLastMsg(`x Stock insuficiente (disponible: ${product.stock})`);
+      (async () => {
+        const qtyMatch = barcode.match(/^(\d+)[*\s](.+)$/);
+        const qty  = qtyMatch ? parseInt(qtyMatch[1]!) : 1;
+        const code = qtyMatch ? qtyMatch[2]!.trim() : barcode.trim();
+        const product = await findProductByCode(code);
+        if (product) {
+          if (product.active === 0) {
+            setLastMsg(`x "${product.name}" esta inactivo`);
+          } else if (product.stock < qty) {
+            setLastMsg(`x Stock insuficiente (disponible: ${product.stock})`);
+          } else {
+            for (let i = 0; i < qty; i++) add(product);
+            const unitLabel = product.unitType === "pza" ? "pza" : product.unitType;
+            const qtyStr    = qty > 1 ? `${qty}x ` : "";
+            setLastMsg(`v ${qtyStr}${product.name.substring(0, 12)} ${unitLabel} $${product.price}`);
+          }
         } else {
-          for (let i = 0; i < qty; i++) add(product);
-          const unitLabel = product.unitType === "pza" ? "pza" : product.unitType;
-          const qtyStr    = qty > 1 ? `${qty}x ` : "";
-          setLastMsg(`v ${qtyStr}${product.name.substring(0, 12)} ${unitLabel} $${product.price}`);
+          setLastMsg(`x Codigo "${code}" no encontrado`);
         }
-      } else {
-        setLastMsg(`x Codigo "${code}" no encontrado`);
-      }
-      setBarcode("");
+        setBarcode("");
+      })();
       return;
     }
 
@@ -128,6 +135,8 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
     if (key.escape && activePanel === "ticket")                           { setActivePanel("grid");    return; }
     if (input === "/")                                                     { setActivePanel("search");  return; }
     if (input === "r" && activePanel !== "reports")                       { setActivePanel("reports"); return; }
+    if (input === "m")                                                     { setActivePanel("manage");  return; }
+    if (input === "i")                                                   { setActivePanel("inventory"); return; }
     if (input === "l")                                                     { if (onLogout) onLogout();  return; }
     if (input === "q" && key.ctrl) exit();
   });
@@ -207,10 +216,10 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
           items: invoiceItems,
         });
 
-        db.update(sales)
-          .set({ cfdiStatus: result.status, cfdiUuid: result.uuid })
-          .where(eq(sales.ticket, tno))
-          .run();
+        await db.run(
+          `UPDATE sales SET cfdi_status = $1, cfdi_uuid = $2 WHERE ticket = $3`,
+          [result.status, result.uuid, tno]
+        );
 
         // Enviar factura por email si se proporcionó
         if (invoiceData?.email && result.id) {
@@ -281,13 +290,16 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
       const current = products.find(p => p.sku === item.sku);
       if (current && current.stock !== null) {
         const newStock = Math.max(0, current.stock - item.qty);
-        db.update(productsTable)
-          .set({ stock: newStock, updatedAt: new Date().toISOString() })
-          .where(eq(productsTable.sku, item.sku))
-          .run();
+        await db.run(
+          `UPDATE products SET stock = $1, updated_at = $2 WHERE sku = $3`,
+          [newStock, new Date().toISOString(), item.sku]
+        );
         setProducts(prev => prev.map(p => p.sku === item.sku ? { ...p, stock: newStock } : p));
       }
     }
+
+    const posUser = user?.name || "Cajero";
+    await logAudit({ entityType: "sale", entityId: tno, action: "sell", changes: { items: cartItems.map(i => ({ sku: i.sku, name: i.name, qty: i.qty, price: i.price })), total: t, method, itemCount }, performedBy: posUser });
 
     const ticketData: TicketData = {
       ticket:   tno,
@@ -404,6 +416,7 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
               value={query}
               onChange={setQuery}
               onSubmit={() => {
+                (async () => {
                 const value = query.trim();
                 if (value.length >= 4) {
                   const qtyMatch = value.match(/^(\d+)[*\s](.+)$/);
@@ -412,7 +425,7 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
                   const isBarcodeInput = qtyMatch !== null || /^\d/.test(code);
                   
                   if (isBarcodeInput) {
-                    const product = findProductByCode(code);
+                    const product = await findProductByCode(code);
                     if (product) {
                       if (product.active === 0) {
                         setLastMsg(`x "${product.name}" esta inactivo`);
@@ -431,6 +444,7 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
                   }
                 }
                 setActivePanel("grid");
+                })();
               }}
               placeholder={
                 layout.widthTier === "compact"
@@ -519,6 +533,9 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
                   <Text color={theme.textMuted}>R</Text> reportes
                 </Text>
                 <Text color={theme.textDim}>
+                  <Text color={theme.textMuted}>I</Text> inventario
+                </Text>
+                <Text color={theme.textDim}>
                   <Text color={theme.textMuted}>L</Text> salir
                 </Text>
               </Box>
@@ -598,6 +615,22 @@ export function PosScreen({ onLogout }: { onLogout?: () => void }) {
         rows={rows}
         cols={cols}
         active={activePanel === "reports"}
+        onClose={() => setActivePanel("grid")}
+      />
+
+      {/* ── PRODUCT MANAGEMENT ───────────────────────────────────────────── */}
+      {activePanel === "manage" && (
+        <ProductConfig
+          onBack={() => setActivePanel("grid")}
+          isAdmin={user?.role === "admin"}
+        />
+      )}
+
+      {/* ── INVENTORY SCREEN ─────────────────────────────────────────────── */}
+      <InventoryScreen
+        rows={rows}
+        cols={cols}
+        active={activePanel === "inventory"}
         onClose={() => setActivePanel("grid")}
       />
 

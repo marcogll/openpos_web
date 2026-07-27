@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { hashPin, isHashedPin, verifyPin } from "../../../shared/src/auth/pin";
 import { createToken, verifyToken } from "../auth";
-import { getRawDb } from "../webDb";
+import { getRawDb, logAudit } from "../webDb";
 
 export const authRoutes = new Hono();
 
@@ -41,6 +41,7 @@ authRoutes.post("/setup", async (c) => {
     const user = await db.get("SELECT * FROM users WHERE username = $1", [username]) as any;
     const token = createToken({ id: user.id, username: user.username, role: user.role });
 
+    await logAudit({ entityType: "auth", entityId: username, action: "setup", performedBy: username });
     return c.json({
       token,
       user: { id: user.id, username: user.username, name: user.name, role: user.role },
@@ -75,6 +76,8 @@ authRoutes.post("/login", async (c) => {
 
     const token = createToken({ id: user.id, username: user.username, role: user.role });
 
+    const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "";
+    await logAudit({ entityType: "auth", entityId: username, action: "login", changes: { role: user.role }, performedBy: username, ipAddress: ip });
     return c.json({
       token,
       user: {

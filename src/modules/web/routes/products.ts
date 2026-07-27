@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { requireRole } from "../auth";
-import { getRawDb, searchProducts } from "../webDb";
+import { getRawDb, searchProducts, logAudit } from "../webDb";
 
 export const productRoutes = new Hono();
 
@@ -109,6 +109,8 @@ productRoutes.post("/", requireRole("admin"), async (c) => {
     );
 
     const created = await db.get("SELECT * FROM products WHERE sku = $1", [sku]);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "product", entityId: sku, action: "create", changes: { name, price, cost, category, stock }, performedBy: user });
     return c.json(created, 201);
   } catch (err) {
     return c.json({ error: "Failed to create product" }, 500);
@@ -146,6 +148,8 @@ productRoutes.put("/:sku", requireRole("admin"), async (c) => {
     await db.run(`UPDATE products SET ${updates.join(", ")} WHERE sku = $${values.length}`, values);
 
     const updated = await db.get("SELECT * FROM products WHERE sku = $1", [sku]);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "product", entityId: sku, action: "update", changes: { ...body, sku }, performedBy: user });
     return c.json(updated);
   } catch (err) {
     return c.json({ error: "Failed to update product" }, 500);
@@ -163,6 +167,8 @@ productRoutes.delete("/:sku", requireRole("admin"), async (c) => {
     }
 
     await db.run("UPDATE products SET active = 0, updated_at = NOW()::text WHERE sku = $1", [sku]);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "product", entityId: sku, action: "deactivate", changes: { active: 0 }, performedBy: user });
     return c.json({ message: "Product deactivated" });
   } catch (err) {
     return c.json({ error: "Failed to delete product" }, 500);

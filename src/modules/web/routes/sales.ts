@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getRawDb, getSql } from "../webDb";
+import { getRawDb, getSql, logAudit } from "../webDb";
 
 export const salesRoutes = new Hono();
 
@@ -66,6 +66,37 @@ const getNextTicket = async (sql: ReturnType<typeof getSql> | any) => {
   return ticket;
 };
 
+async function enrichWithCost(sales: any[], sql: ReturnType<typeof getSql>): Promise<any[]> {
+  const skus = new Set<string>();
+  for (const s of sales) {
+    const items: SaleItem[] = JSON.parse(s.items);
+    for (const item of items) skus.add(item.sku);
+  }
+  if (skus.size === 0) return sales;
+
+  const products = await sql`
+    SELECT sku, COALESCE(cost, 0)::float as cost FROM products WHERE sku IN (${sql(skus)})
+  `;
+  const costMap = new Map<string, number>(
+    (products as any[]).map((p: any) => [p.sku, p.cost])
+  );
+
+  return sales.map((s: any) => {
+    const items: SaleItem[] = JSON.parse(s.items);
+    let totalCost = 0;
+    for (const item of items) {
+      totalCost += (costMap.get(item.sku) || 0) * item.qty;
+    }
+    return {
+      ...s,
+      items,
+      cost: Math.round(totalCost * 100) / 100,
+      profit: Math.round((s.total - totalCost) * 100) / 100,
+      marginPct: s.total > 0 ? Math.round(((s.total - totalCost) / s.total) * 10000) / 100 : 0,
+    };
+  });
+}
+
 salesRoutes.get("/", async (c) => {
   try {
     const sql = getSql();
@@ -75,6 +106,7 @@ salesRoutes.get("/", async (c) => {
     const date = c.req.query("date");
     const method = c.req.query("method");
     const status = c.req.query("status");
+    const includeCost = c.req.query("includeCost") === "true";
 
     let items: any[];
     let countRow: any;
@@ -105,8 +137,12 @@ salesRoutes.get("/", async (c) => {
       countRow = (await sql`SELECT COUNT(*)::int as count FROM sales`)[0];
     }
 
+    const mapped = includeCost
+      ? await enrichWithCost(items, sql)
+      : items.map((s: any) => ({ ...s, items: JSON.parse(s.items) }));
+
     return c.json({
-      items: items.map((s: any) => ({ ...s, items: JSON.parse(s.items) })),
+      items: mapped,
       total: countRow?.count || 0,
       page,
       limit,
@@ -220,6 +256,8 @@ salesRoutes.post("/", async (c) => {
     if ("error" in result) return c.json({ error: result.error }, result.status);
 
     const created = await sql`SELECT * FROM sales WHERE ticket = ${result.ticket}`;
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "sale", entityId: result.ticket, action: "sell", performedBy: user });
     return c.json({ ...created[0], items: JSON.parse(created[0].items) }, 201);
   } catch (err) {
     if (err instanceof SaleRouteError) {

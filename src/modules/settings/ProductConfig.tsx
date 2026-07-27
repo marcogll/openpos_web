@@ -2,7 +2,6 @@ import React from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
 import { db, products, type Product, BgBox, theme, logger } from "@openpos/shared";
-import { sql } from "drizzle-orm";
 import { useTerminalSize } from "./useTerminalSize";
 
 type ProductConfigProps = {
@@ -71,10 +70,10 @@ export function ProductConfig({ onBack, isAdmin }: ProductConfigProps) {
 	const [error, setError] = React.useState("");
 	const [fieldIdx, setFieldIdx] = React.useState(0);
 
-	const loadProducts = React.useCallback(() => {
+	const loadProducts = React.useCallback(async () => {
 		try {
 			const searchLower = search.toLowerCase().trim();
-			let result = db.select().from(products)
+			let result = await db.select().from(products)
 				.orderBy(products.sku)
 				.limit(PAGE_SIZE)
 				.offset(page * PAGE_SIZE)
@@ -96,8 +95,8 @@ export function ProductConfig({ onBack, isAdmin }: ProductConfigProps) {
 			
 			setProductsList(filteredResult);
 			
-			const total = db.select({ count: sql<number>`count(*)` }).from(products).get();
-			setTotalProducts(total?.count || 0);
+			const totalRow = await db.get("SELECT COUNT(*)::int as count FROM products");
+			setTotalProducts(totalRow?.count || 0);
 			setError("");
 		} catch (e) {
 			logger.error("ProductConfig: error loading products", e);
@@ -115,7 +114,7 @@ export function ProductConfig({ onBack, isAdmin }: ProductConfigProps) {
 		return ["TODAS", ...Array.from(cats).sort()];
 	}, [productsList]);
 
-	const handleSave = () => {
+	const handleSave = async () => {
 		if (!form.sku || !form.name || !form.price) {
 			setMsg("SKU, nombre y precio obligatorios");
 			return;
@@ -142,30 +141,24 @@ export function ProductConfig({ onBack, isAdmin }: ProductConfigProps) {
 
 		try {
 			if (view === "add") {
-				const existing = db.select().from(products).where(sql`sku = ${form.sku}`).get();
+				const existing = await db.get("SELECT id FROM products WHERE sku = $1", [form.sku]);
 				if (existing) {
 					setMsg("Ya existe un producto con ese SKU");
 					return;
 				}
 
-				db.insert(products).values({
-					...productData,
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-				}).run();
+				const now = new Date().toISOString();
+				await db.run(
+					`INSERT INTO products (barcode, sku, name, price, cost, category, stock, min_stock, unit_type, unit_qty, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+					[productData.barcode, productData.sku, productData.name, productData.price, productData.cost, productData.category, productData.stock, productData.minStock, productData.unitType, 1, productData.active, now, now]
+				);
 				setMsg("Producto agregado");
 			} else if (view === "edit" && editingId) {
-				db.update(products).set({
-					name: form.name,
-					price,
-					cost: parseFloat(form.cost) || 0,
-					category: form.category,
-					stock: parseFloat(form.stock) || 0,
-					barcode: form.barcode || null,
-					unitType: form.unitType,
-					minStock: parseFloat(form.minStock) || 5,
-					updatedAt: new Date().toISOString(),
-				}).where(sql`id = ${editingId}`).run();
+				const now = new Date().toISOString();
+				await db.run(
+					`UPDATE products SET name = $1, price = $2, cost = $3, category = $4, stock = $5, barcode = $6, unit_type = $7, min_stock = $8, updated_at = $9 WHERE id = $10`,
+					[form.name, price, parseFloat(form.cost) || 0, form.category, parseFloat(form.stock) || 0, form.barcode || null, form.unitType, parseFloat(form.minStock) || 5, now, editingId]
+				);
 				setMsg("Producto actualizado");
 			}
 
@@ -181,10 +174,10 @@ export function ProductConfig({ onBack, isAdmin }: ProductConfigProps) {
 		}
 	};
 
-	const handleDelete = (id: number) => {
+	const handleDelete = async (id: number) => {
 		if (!isAdmin) return;
 		try {
-			db.run(sql`DELETE FROM products WHERE id = ${id}`);
+			await db.run("DELETE FROM products WHERE id = $1", [id]);
 			setMsg("Producto eliminado");
 			setTimeout(() => {
 				setMsg("");

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { hashPin } from "../../../shared/src/auth/pin";
-import { getRawDb } from "../webDb";
+import { getRawDb, logAudit } from "../webDb";
 
 type UserBody = {
   username?: string;
@@ -97,6 +97,8 @@ userRoutes.post("/", async (c) => {
       [body.username]
     );
 
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "user", entityId: body.username, action: "create", changes: { name: body.name, role: body.role }, performedBy: user });
     return c.json(toUserResponse(created[0]), 201);
   } catch (err) {
     return c.json({ error: "Failed to create user" }, 500);
@@ -151,6 +153,8 @@ userRoutes.put("/:id", async (c) => {
       [id]
     );
 
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "user", entityId: String(id), action: "update", changes: { username: body.username, name: body.name, role: body.role, pinChanged: Boolean(body.pin) }, performedBy: user });
     return c.json(toUserResponse(updated));
   } catch (err) {
     return c.json({ error: "Failed to update user" }, 500);
@@ -171,6 +175,8 @@ userRoutes.delete("/:id", async (c) => {
     }
 
     await db.run("UPDATE users SET active = 0, updated_at = NOW()::text WHERE id = $1", [id]);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "user", entityId: String(id), action: "deactivate", changes: { active: 0 }, performedBy: user });
     return c.json({ message: "User deactivated" });
   } catch (err) {
     return c.json({ error: "Failed to delete user" }, 500);

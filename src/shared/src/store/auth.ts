@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import { db } from "../db/client.js";
-import { users } from "../db/schema.js";
 import { hashPin, isHashedPin, verifyPin } from "../auth/pin.js";
-import { sql } from "drizzle-orm";
 
 type User = {
   id: number;
@@ -16,7 +14,7 @@ type User = {
 type AuthStore = {
   isAuthenticated: boolean;
   user: User | null;
-  login: (username: string, pin: string) => boolean;
+  login: (username: string, pin: string) => Promise<boolean>;
   logout: () => void;
 };
 
@@ -24,15 +22,15 @@ export const useAuth = create<AuthStore>((set) => ({
   isAuthenticated: false,
   user: null,
 
-  login(username, pin) {
-    const dbUsers = db.select().from(users).where(sql`active = 1`).all();
+  async login(username, pin) {
+    const dbUsers = await db.all("SELECT * FROM users WHERE active = 1");
     const validUser = dbUsers.find(
-      (u: typeof users.$inferSelect) => u.username.toLowerCase() === username.toLowerCase() && verifyPin(u.pin, pin) && u.active === 1
+      (u: any) => u.username.toLowerCase() === username.toLowerCase() && verifyPin(u.pin, pin) && u.active === 1
     );
 
     if (validUser) {
       if (!isHashedPin(validUser.pin)) {
-        db.run(sql`UPDATE users SET pin = ${hashPin(pin)}, updated_at = datetime('now') WHERE id = ${validUser.id}`);
+        await db.run("UPDATE users SET pin = $1, updated_at = NOW() WHERE id = $2", [hashPin(pin), validUser.id]);
       }
       set({ isAuthenticated: true, user: validUser as User });
       return true;

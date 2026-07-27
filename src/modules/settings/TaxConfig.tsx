@@ -12,10 +12,19 @@ type TaxConfigProps = {
 export function TaxConfig({ onBack, isAdmin }: TaxConfigProps) {
 	const { cols, rows } = useTerminalSize();
 	const [field, setField] = React.useState(0);
-	const [taxRate, setTaxRate] = React.useState(() => getConfig(CONFIG_KEYS.TAX_RATE) || "16");
-	const [lastTicket, setLastTicket] = React.useState(() => getConfig(CONFIG_KEYS.LAST_TICKET) || "1");
+	const [taxRate, setTaxRate] = React.useState("16");
+	const [lastTicket, setLastTicket] = React.useState("1");
 	const [saved, setSaved] = React.useState(false);
 	const [error, setError] = React.useState(false);
+
+	React.useEffect(() => {
+		(async () => {
+			const rate = await getConfig(CONFIG_KEYS.TAX_RATE);
+			const ticket = await getConfig(CONFIG_KEYS.LAST_TICKET);
+			if (rate) setTaxRate(rate);
+			if (ticket) setLastTicket(ticket);
+		})();
+	}, []);
 
 	useInput((input, key) => {
 		if (key.escape) {
@@ -24,19 +33,21 @@ export function TaxConfig({ onBack, isAdmin }: TaxConfigProps) {
 		}
 		if (key.return) {
 			if (isAdmin) {
-				let allSaved = true;
-				const rate = parseFloat(taxRate);
-				if (!isNaN(rate) && rate >= 0 && rate <= 100) {
-					if (!setConfig(CONFIG_KEYS.TAX_RATE, taxRate)) allSaved = false;
-				}
-				if (!setConfig(CONFIG_KEYS.LAST_TICKET, lastTicket)) allSaved = false;
-				if (allSaved) {
-					setSaved(true);
-					setTimeout(() => setSaved(false), 2000);
-				} else {
-					setError(true);
-					setTimeout(() => setError(false), 2000);
-				}
+				(async () => {
+					let allSaved = true;
+					const rate = parseFloat(taxRate);
+					if (!isNaN(rate) && rate >= 0 && rate <= 100) {
+						if (!(await setConfig(CONFIG_KEYS.TAX_RATE, taxRate))) allSaved = false;
+					}
+					if (!(await setConfig(CONFIG_KEYS.LAST_TICKET, lastTicket))) allSaved = false;
+					if (allSaved) {
+						setSaved(true);
+						setTimeout(() => setSaved(false), 2000);
+					} else {
+						setError(true);
+						setTimeout(() => setError(false), 2000);
+					}
+				})();
 			}
 			return;
 		}

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { requireRole } from "../auth";
-import { getRawDb, getOrCreateClient, listClients } from "../webDb";
+import { getRawDb, getOrCreateClient, listClients, logAudit } from "../webDb";
 
 export const clientRoutes = new Hono();
 
@@ -48,6 +48,8 @@ clientRoutes.post("/", requireRole("admin"), async (c) => {
       return c.json({ error: "rfc and razonSocial are required" }, 400);
     }
     const client = await getOrCreateClient({ rfc, razonSocial, email, telefono, direccion, regimenFiscal });
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "client", entityId: rfc, action: "create", changes: { razonSocial, email }, performedBy: user });
     return c.json(toClientDto(client), 201);
   } catch (err) {
     return c.json({ error: "Failed to create client" }, 500);
@@ -77,6 +79,8 @@ clientRoutes.put("/:rfc", requireRole("admin"), async (c) => {
     await db.run(`UPDATE clients SET ${updates.join(", ")} WHERE rfc = $${idx}`, values);
 
     const updated = await db.get("SELECT * FROM clients WHERE rfc = $1", [rfc]);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "client", entityId: rfc, action: "update", changes: body, performedBy: user });
     return c.json(toClientDto(updated));
   } catch (err) {
     return c.json({ error: "Failed to update client" }, 500);
@@ -90,6 +94,8 @@ clientRoutes.delete("/:rfc", requireRole("admin"), async (c) => {
     const existing = await db.get("SELECT rfc FROM clients WHERE rfc = $1", [rfc]);
     if (!existing) return c.json({ error: "Client not found" }, 404);
     await db.run("DELETE FROM clients WHERE rfc = $1", [rfc]);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "client", entityId: rfc, action: "delete", changes: {}, performedBy: user });
     return c.json({ message: "Client deleted" });
   } catch (err) {
     return c.json({ error: "Failed to delete client" }, 500);

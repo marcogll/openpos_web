@@ -40,8 +40,7 @@ const UNIT_STEP: Record<UnitType, number> = {
 export type CartItem = Product & { qty: number };
 
 function loadTicketNum(): number {
-  const saved = getConfig(CONFIG_KEYS.LAST_TICKET);
-  return saved ? parseInt(saved, 10) : 1;
+  return 1;
 }
 
 function saveTicketNum(num: number): void {

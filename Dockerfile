@@ -5,9 +5,10 @@ WORKDIR /app
 
 # Copy dependency files first
 COPY package.json bun.lock* package-lock.json* ./
+COPY src/shared/package.json ./src/shared/package.json
 
 # Install dependencies
-RUN bun install
+RUN bun install && mkdir -p node_modules/react-devtools-core && echo 'export default {};' > node_modules/react-devtools-core/index.js
 
 # Copy source code and assets
 COPY . .

@@ -4,7 +4,7 @@ export { getBillingConfig, loadConfig, saveBillingConfig, resetConfigCache, getP
 export * from "./components/index.js";
 export * from "./hooks/index.js";
 
-export { db, initDb, getConfig, setConfig, CONFIG_KEYS, getStoreConfig } from "./db/client.js";
+export { db, initDb, getConfig, setConfig, CONFIG_KEYS, getStoreConfig, logAudit } from "./db/client.js";
 export { products, sales, users, config, clients, UNIT_TYPES } from "./db/schema.js";
 export type { Product, Sale, User, Client, UnitType } from "./db/schema.js";
 

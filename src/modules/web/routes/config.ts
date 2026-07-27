@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { requireRole } from "../auth";
-import { CONFIG_KEYS, getRawDb, getConfig, setConfig } from "../webDb";
+import { CONFIG_KEYS, getRawDb, getConfig, setConfig, logAudit } from "../webDb";
 
 export const configRoutes = new Hono();
 const execFileAsync = promisify(execFile);
@@ -124,6 +124,8 @@ configRoutes.put("/", requireRole("admin"), async (c) => {
       if (!ok) allSaved = false;
     }
     if (!allSaved) return c.json({ error: "Failed to update some config keys" }, 500);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "config", entityId: "bulk", action: "update", changes: body as Record<string, unknown>, performedBy: user });
     return c.json({ success: true });
   } catch (err) {
     return c.json({ error: "Failed to update config" }, 500);
@@ -139,6 +141,8 @@ configRoutes.put("/:key", requireRole("admin"), async (c) => {
     if (normalizedValue === null) return c.json({ error: `Invalid config key or value: ${key}` }, 400);
     const success = await setConfig(key, normalizedValue);
     if (!success) return c.json({ error: "Failed to update config" }, 500);
+    const user = (c as any).get("user")?.username || "admin";
+    await logAudit({ entityType: "config", entityId: key, action: "update", changes: { key, value: normalizedValue }, performedBy: user });
     return c.json({ key, value: normalizedValue });
   } catch (err) {
     return c.json({ error: "Failed to update config" }, 500);

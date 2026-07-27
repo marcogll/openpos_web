@@ -2,7 +2,6 @@ import React from "react";
 import { Box, Text } from "ink";
 import { useInput } from "ink";
 import { db, clients, listClients, getClientByRfc, type Client, BgBox, theme } from "@openpos/shared";
-import { sql } from "drizzle-orm";
 import { useTerminalSize } from "./useTerminalSize";
 
 type ClientConfigProps = {
@@ -44,8 +43,8 @@ export function ClientConfig({ onBack, isAdmin }: ClientConfigProps) {
 	const panelWidth = Math.min(75, cols - 8);
 	const listHeight = Math.max(8, rows - 12);
 
-	const loadClients = React.useCallback(() => {
-		const result = listClients(search || undefined);
+	const loadClients = React.useCallback(async () => {
+		const result = await listClients(search || undefined);
 		setClientsList(result as Client[]);
 	}, [search]);
 
@@ -53,7 +52,7 @@ export function ClientConfig({ onBack, isAdmin }: ClientConfigProps) {
 		loadClients();
 	}, [loadClients]);
 
-	const handleSave = () => {
+	const handleSave = async () => {
 		if (!form.rfc || !form.razonSocial) {
 			setMsg("❌ RFC y razón social son obligatorios");
 			return;
@@ -75,13 +74,13 @@ export function ClientConfig({ onBack, isAdmin }: ClientConfigProps) {
 		};
 
 		if (view === "add") {
-			const existing = getClientByRfc(form.rfc.toUpperCase());
+			const existing = await getClientByRfc(form.rfc.toUpperCase());
 			if (existing) {
 				setMsg("❌ Ya existe un cliente con ese RFC");
 				return;
 			}
 
-			db.insert(clients).values({
+			await db.insert(clients).values({
 				code: "CL-" + String(Date.now()).slice(-5),
 				...clientData,
 				createdAt: new Date().toISOString(),
@@ -89,17 +88,11 @@ export function ClientConfig({ onBack, isAdmin }: ClientConfigProps) {
 			}).run();
 			setMsg("✅ Cliente agregado");
 		} else if (view === "edit" && editingRfc) {
-			db.run(sql`
-				UPDATE clients SET
-					razon_social = ${clientData.razonSocial},
-					email = ${clientData.email},
-					telefono = ${clientData.telefono},
-					direccion = ${clientData.direccion},
-					regimen_fiscal = ${clientData.regimenFiscal},
-					puntos = ${clientData.puntos},
-					updated_at = datetime('now')
-				WHERE rfc = ${editingRfc}
-			`);
+			const now = new Date().toISOString();
+			await db.run(
+				`UPDATE clients SET razon_social = $1, email = $2, telefono = $3, direccion = $4, regimen_fiscal = $5, puntos = $6, updated_at = $7 WHERE rfc = $8`,
+				[clientData.razonSocial, clientData.email, clientData.telefono, clientData.direccion, clientData.regimenFiscal, clientData.puntos, now, editingRfc]
+			);
 			setMsg("✅ Cliente actualizado");
 		}
 
@@ -112,9 +105,9 @@ export function ClientConfig({ onBack, isAdmin }: ClientConfigProps) {
 		}, 1500);
 	};
 
-	const handleDelete = (rfc: string) => {
+	const handleDelete = async (rfc: string) => {
 		if (!isAdmin) return;
-		db.run(sql`DELETE FROM clients WHERE rfc = ${rfc}`);
+		await db.run("DELETE FROM clients WHERE rfc = $1", [rfc]);
 		setMsg("✅ Cliente eliminado");
 		setTimeout(() => {
 			setMsg("");

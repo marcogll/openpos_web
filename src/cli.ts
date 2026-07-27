@@ -1,7 +1,6 @@
 import { resolve } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { db, initDb, getConfig, setConfig, CONFIG_KEYS, products, users, logger } from "@openpos/shared";
-import { sql } from "drizzle-orm";
+import { db, initDb, getConfig, setConfig, CONFIG_KEYS, logger } from "@openpos/shared";
 
 logger.info("CLI module loaded");
 
@@ -152,7 +151,7 @@ async function importProducts(filePath: string, dryRun: boolean, replace: boolea
 
   if (replace) {
     console.log("🗑️  Limpiando productos existentes...");
-    db.delete(products).run();
+    await db.run("DELETE FROM products");
     console.log("✅ Productos eliminados");
   }
 
@@ -186,27 +185,17 @@ async function importProducts(filePath: string, dryRun: boolean, replace: boolea
     }
 
     const product = normalizeProduct(row);
-    const existing = db.select().from(products).where(sql`sku = ${product.sku}`).get();
+    const existing = await db.get("SELECT * FROM products WHERE sku = $1", [product.sku]);
 
     if (existing) {
       if (dryRun) {
         console.log(`  🔄 [dry-run] Se actualizaría: ${product.sku} - ${product.name}`);
         updated++;
       } else {
-        db.run(sql`
-          UPDATE products SET
-            name = ${product.name},
-            price = ${product.price},
-            cost = ${product.cost},
-            category = ${product.category},
-            stock = ${product.stock},
-            barcode = ${product.barcode},
-            unitType = ${product.unitType},
-            unitQty = ${product.unitQty},
-            minStock = ${product.minStock},
-            updated_at = datetime('now')
-          WHERE sku = ${product.sku}
-        `);
+        await db.run(
+          `UPDATE products SET name = $1, price = $2, cost = $3, category = $4, stock = $5, barcode = $6, unit_type = $7, unit_qty = $8, min_stock = $9, updated_at = NOW() WHERE sku = $10`,
+          [product.name, product.price, product.cost, product.category, product.stock, product.barcode, product.unitType, product.unitQty, product.minStock, product.sku]
+        );
         console.log(`  🔄 ${product.sku} - actualizado`);
         updated++;
       }
@@ -215,11 +204,11 @@ async function importProducts(filePath: string, dryRun: boolean, replace: boolea
         console.log(`  ✅ [dry-run] Se insertaría: ${product.sku} - ${product.name}`);
         inserted++;
       } else {
-        db.insert(products).values({
-          ...product,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }).run();
+        const now = new Date().toISOString();
+        await db.run(
+          `INSERT INTO products (barcode, sku, name, price, cost, category, stock, min_stock, unit_type, unit_qty, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [product.barcode, product.sku, product.name, product.price, product.cost, product.category, product.stock, product.minStock, product.unitType, product.unitQty, product.active, now, now]
+        );
         console.log(`  ✅ ${product.sku} - ${product.name}`);
         inserted++;
       }
@@ -245,7 +234,7 @@ async function exportProducts(filePath: string): Promise<void> {
 
   initDb();
 
-  const allProducts = db.select().from(products).all();
+  const allProducts = await db.all("SELECT * FROM products");
 
   if (allProducts.length === 0) {
     showError("No hay productos para exportar");
@@ -291,18 +280,17 @@ async function runSeed(dryRun: boolean): Promise<void> {
 
   let inserted = 0;
   for (const p of sample) {
-    const existing = db.select().from(products).where(sql`sku = ${p.sku}`).get();
+    const existing = await db.get("SELECT id FROM products WHERE sku = $1", [p.sku]);
     if (existing) continue;
 
     if (dryRun) {
       console.log(`  ✅ [dry-run] Se insertaría: ${p.sku} - ${p.name}`);
     } else {
-      db.insert(products).values({
-        ...p,
-        active: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }).run();
+      const now = new Date().toISOString();
+      await db.run(
+        `INSERT INTO products (barcode, sku, name, price, cost, category, stock, min_stock, unit_type, unit_qty, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [p.barcode, p.sku, p.name, p.price, p.cost, p.category, p.stock, p.minStock, p.unitType, p.unitQty, 1, now, now]
+      );
       console.log(`  ✅ ${p.sku} - ${p.name}`);
     }
     inserted++;
@@ -314,10 +302,10 @@ async function runSeed(dryRun: boolean): Promise<void> {
 async function configGet(key: string): Promise<void> {
   if (!key) {
     console.log("Available config keys:");
-    VALID_CONFIG_KEYS.forEach(k => {
-      const val = getConfig(k);
+    for (const k of VALID_CONFIG_KEYS) {
+      const val = await getConfig(k);
       console.log(`  ${k}: ${val || "(no value)"}`);
-    });
+    }
     return;
   }
 
@@ -325,7 +313,7 @@ async function configGet(key: string): Promise<void> {
     showError(`Invalid key. Use: ${VALID_CONFIG_KEYS.join(", ")}`);
   }
 
-  const val = getConfig(key);
+  const val = await getConfig(key);
   console.log(`${key} = ${val || "(no value)"}`);
 }
 
@@ -338,7 +326,7 @@ async function configSet(key: string, value: string): Promise<void> {
     showError(`Invalid key. Use: ${VALID_CONFIG_KEYS.join(", ")}`);
   }
 
-  const ok = setConfig(key, value);
+  const ok = await setConfig(key, value);
   if (ok) {
     console.log(`✅ ${key} = ${value}`);
   } else {
@@ -378,20 +366,16 @@ async function addUser(username: string, pin: string, role: string): Promise<voi
 
   initDb();
 
-  const existing = db.select().from(users).where(sql`username = ${username}`).get();
+  const existing = await db.get("SELECT id FROM users WHERE username = $1", [username]);
   if (existing) {
     showError(`User '${username}' already exists`);
   }
 
-  db.insert(users).values({
-    username,
-    name: username,
-    pin,
-    role: finalRole,
-    active: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }).run();
+  const now = new Date().toISOString();
+  await db.run(
+    `INSERT INTO users (username, name, pin, role, active, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [username, username, pin, finalRole, 1, now, now]
+  );
 
   console.log(`✅ User '${username}' created with role '${finalRole}'`);
 }

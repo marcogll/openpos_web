@@ -80,14 +80,16 @@ export function App() {
   ], []);
 
   const handleLoadingReady = React.useCallback(() => {
-    const termsAccepted = getConfig(CONFIG_KEYS.TERMS_ACCEPTED);
-    if (termsAccepted === "true") {
-      logger.info("LoadingScreen → login (terms accepted)");
-      setState("login");
-    } else {
-      logger.info("LoadingScreen → terms");
-      setState("terms");
-    }
+    (async () => {
+      const termsAccepted = await getConfig(CONFIG_KEYS.TERMS_ACCEPTED);
+      if (termsAccepted === "true") {
+        logger.info("LoadingScreen → login (terms accepted)");
+        setState("login");
+      } else {
+        logger.info("LoadingScreen → terms");
+        setState("terms");
+      }
+    })();
   }, []);
 
   if (state === "loading") {

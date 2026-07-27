@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { requireRole } from "../auth";
-import { getRawDb, getLowStockProducts, getInventoryMovements, getInventoryDashboard } from "../webDb";
+import { getRawDb, getLowStockProducts, getInventoryMovements, getInventoryDashboard, logAudit } from "../webDb";
 
 export const inventoryRoutes = new Hono();
 
@@ -68,6 +68,7 @@ inventoryRoutes.post("/adjustment", requireRole("admin"), async (c) => {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE sku = $1", [sku]);
+    await logAudit({ entityType: "inventory", entityId: sku, action: "adjust_stock", changes: { previousStock, newStock, note }, performedBy: user });
     return c.json({ product: updated, movement: { previousStock, newStock } });
   } catch {
     return c.json({ error: "Failed to adjust stock" }, 500);
@@ -111,6 +112,7 @@ inventoryRoutes.post("/count", requireRole("admin"), async (c) => {
       results.push({ sku: item.sku, name: product.name, previousStock, newStock: counted, diff: counted - previousStock });
     }
 
+    await logAudit({ entityType: "inventory", entityId: "count", action: "physical_count", changes: { itemsAdjusted: results.length, skus: results.map((r: any) => r.sku) }, performedBy: user });
     return c.json({ adjusted: results.length, items: results });
   } catch {
     return c.json({ error: "Failed to process physical count" }, 500);
@@ -157,6 +159,7 @@ inventoryRoutes.post("/entry", requireRole("admin"), async (c) => {
     );
 
     const updated = await db.get("SELECT * FROM products WHERE sku = $1", [sku]);
+    await logAudit({ entityType: "inventory", entityId: sku, action: "entry", changes: { previousStock, newStock, quantity, cost }, performedBy: user });
     return c.json({ product: updated, movement: { previousStock, newStock, added: quantity } });
   } catch {
     return c.json({ error: "Failed to register merchandise entry" }, 500);
