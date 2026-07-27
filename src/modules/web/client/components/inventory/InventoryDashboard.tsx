@@ -217,7 +217,10 @@ export function InventoryDashboard() {
 
   React.useEffect(() => {
     fetch("/api/inventory/dashboard")
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Error"); }
+        return r.json();
+      })
       .then((d) => setData(d))
       .catch(() => addToast("Error al cargar dashboard", "error"))
       .finally(() => setLoading(false));
@@ -226,13 +229,11 @@ export function InventoryDashboard() {
   if (loading) {
     return (
       <div className="h-full flex flex-col gap-4 animate-fade-in">
-        {/* KPI skeleton */}
         <div className="grid grid-cols-7 gap-3">
           {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <div key={i} className="h-20 bg-bg-panel rounded-xl border border-bg-active animate-pulse-slow" />
           ))}
         </div>
-        {/* Kanban skeleton */}
         <div className="flex-1 grid grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="bg-bg-panel rounded-xl border border-bg-active animate-pulse-slow" />
@@ -242,7 +243,7 @@ export function InventoryDashboard() {
     );
   }
 
-  if (!data) return null;
+  if (!data || !data.kpis) return null;
 
   const { kpis, kanban, categories } = data;
 
